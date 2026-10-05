@@ -226,14 +226,33 @@ function logout() {
   showToast("Logged out successfully.", "info");
 }
 
+// Room Board Time Simulation
+var currentSimTime = null;
+
+function setSimulatedTime(day, time, btnEl) {
+  if (!day) {
+    currentSimTime = null;
+  } else {
+    currentSimTime = { day: day, time: time };
+  }
+  document.querySelectorAll(".sim-btn").forEach(function (b) { b.classList.remove("active"); });
+  if (btnEl) {
+    btnEl.classList.add("active");
+  } else if (!day) {
+    var liveBtn = document.getElementById("sim-live-btn");
+    if (liveBtn) liveBtn.classList.add("active");
+  }
+  renderBoard();
+}
+
 // Room Board (Home Page)
 function getRoomStatus(roomCode) {
   var now = new Date();
+  var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  var today = currentSimTime ? currentSimTime.day : days[now.getDay()];
   var hh = String(now.getHours()).padStart(2, "0");
   var mm = String(now.getMinutes()).padStart(2, "0");
-  var currentTime = hh + ":" + mm;
-  var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  var today = days[now.getDay()];
+  var currentTime = currentSimTime ? currentSimTime.time : (hh + ":" + mm);
   var todayDate = now.toISOString().split("T")[0];
 
   // Check timetable
@@ -244,8 +263,8 @@ function getRoomStatus(roomCode) {
         return { status: "busy", label: entry.course + " until " + formatTime(entry.end) };
       }
       // Upcoming within 30 minutes
-      var startMin = parseInt(entry.start.split(":")[0]) * 60 + parseInt(entry.start.split(":")[1]);
-      var curMin = parseInt(hh) * 60 + parseInt(mm);
+      var startMin = parseInt(entry.start.split(":")[0], 10) * 60 + parseInt(entry.start.split(":")[1], 10);
+      var curMin = parseInt(currentTime.split(":")[0], 10) * 60 + parseInt(currentTime.split(":")[1], 10);
       if (startMin > curMin && startMin - curMin <= 30) {
         return { status: "soon", label: entry.course + " in " + (startMin - curMin) + " min" };
       }
@@ -290,8 +309,10 @@ function renderBoard() {
       '</div>';
   }).join("");
 
-  document.getElementById("board-time").textContent =
+  var timeLabel = currentSimTime ?
+    (currentSimTime.day + " · " + formatTime(currentSimTime.time) + " (Simulated)") :
     new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  document.getElementById("board-time").textContent = timeLabel;
 }
 
 // Student Dashboard
@@ -304,8 +325,6 @@ function renderStudentDashboard() {
   if (deptEl) deptEl.textContent = currentUser.dept;
 
   var bookings = getBookings().filter(function (b) { return b.student === currentUser.email; });
-  var pending  = bookings.filter(function (b) { return b.status === "Pending"; }).length;
-  var approved = bookings.filter(function (b) { return b.status === "Approved"; }).length;
 
   // Stats
   var statsEl = document.getElementById("dash-stats");
@@ -347,13 +366,14 @@ function renderStudentDashboard() {
           actions = '<div class="actions">' +
             '<p style="font-size:13px;color:var(--amber);margin:6px 0">Admin suggests: <strong>' + b.alternativeRoom + '</strong> instead of ' + b.room + '</p>' +
             '<button class="btn btn-teal btn-sm" onclick="handleAcceptAlt(\'' + b.id + '\')">Accept</button> ' +
-            '<button class="btn btn-ghost btn-sm" onclick="handleDeclineAlt(\'' + b.id + '\')">Decline</button>' +
+            '<button class="btn btn-ghost btn-sm" onclick="handleDeclineAlt(\'' + b.id + '\')">Decline</button> ' +
+            '<button class="btn btn-ghost btn-sm" style="color:var(--rust);border-color:var(--rust)" onclick="handleCancelBooking(\'' + b.id + '\')">Cancel Request</button>' +
             '</div>';
-        }
-        if (b.status === "Approved" && b.qrToken) {
+        } else if (b.status === "Pending") {
+          actions = '<div class="actions"><button class="btn btn-ghost btn-sm" style="color:var(--rust);border-color:var(--rust)" onclick="handleCancelBooking(\'' + b.id + '\')">Cancel Request</button></div>';
+        } else if (b.status === "Approved" && b.qrToken) {
           actions = '<div class="actions"><button class="btn btn-ghost btn-sm" onclick="showQR(\'' + b.id + '\')">View QR Code</button></div>';
-        }
-        if (b.status === "Rejected" && b.adminRemark) {
+        } else if (b.status === "Rejected" && b.adminRemark) {
           actions = '<div class="actions"><p style="font-size:13px;color:var(--rust);margin:4px 0">Reason: ' + b.adminRemark + '</p></div>';
         }
 
@@ -382,9 +402,22 @@ function getStatusBadge(status) {
     "Rejected":               '<span class="badge badge-rust">REJECTED</span>',
     "Alternative Suggested":  '<span class="badge badge-amber">ALTERNATIVE SUGGESTED</span>',
     "Occupied":               '<span class="badge badge-rust">OCCUPIED</span>',
-    "Completed":              '<span class="badge badge-ink">COMPLETED</span>'
+    "Completed":              '<span class="badge badge-ink">COMPLETED</span>',
+    "Cancelled":              '<span class="badge badge-ink" style="opacity:0.65">CANCELLED</span>'
   };
   return map[status] || '<span class="badge badge-ink">' + status + '</span>';
+}
+
+function handleCancelBooking(bookingId) {
+  if (confirm("Are you sure you want to cancel booking request " + bookingId + "?")) {
+    var result = cancelBooking(bookingId);
+    if (result.success) {
+      showToast("Booking " + bookingId + " cancelled.", "info");
+      renderStudentDashboard();
+    } else {
+      showToast(result.error, "error");
+    }
+  }
 }
 
 // Show QR for approved booking
@@ -451,6 +484,12 @@ function updateRoomPicker() {
     return;
   }
 
+  if (isTimeInPast(date, startTime)) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:20px"><div class="icon">⏰</div>Start time (' + formatTime(startTime) + ') is in the past for selected date. Please pick an upcoming time slot.</div>';
+    selectedRoom = null;
+    return;
+  }
+
   var roomList = getAvailableRooms(date, startTime, endTime, attendees);
   selectedRoom = null;
 
@@ -467,10 +506,19 @@ function updateRoomPicker() {
       statusLine = "Capacity " + r.capacity + " · Available";
     }
 
+    var extraBadges = "";
+    if (r.available && r.bufferNotice) {
+      extraBadges += '<div style="font-size:11.5px;color:var(--amber);margin-top:3px">⚠️ ' + r.bufferNotice + '</div>';
+    }
+    if (r.available && r.pendingCount > 0) {
+      extraBadges += '<div style="font-size:11.5px;color:var(--muted);margin-top:2px">⏳ ' + r.pendingCount + ' request(s) awaiting admin review</div>';
+    }
+
     return '<button type="button" class="room-option ' + (disabled ? 'disabled' : '') + '" ' +
       (disabled ? 'disabled' : '') + ' data-room="' + r.code + '" onclick="selectRoom(\'' + r.code + '\')">' +
       '<div class="rn">' + r.code + '</div>' +
       '<div class="rd">' + statusLine + '</div>' +
+      extraBadges +
       '</button>';
   }).join("");
 }
@@ -517,6 +565,67 @@ function handleBookingSubmit() {
   selectedRoom = null;
 }
 
+// Generate a procedural crisp QR Code SVG based on token string
+function generateQRCodeSVG(text) {
+  var size = 21;
+  var matrix = [];
+  for (var r = 0; r < size; r++) {
+    matrix[r] = [];
+    for (var c = 0; c < size; c++) {
+      matrix[r][c] = false;
+    }
+  }
+
+  function drawFinder(r0, c0) {
+    for (var r = 0; r < 7; r++) {
+      for (var c = 0; c < 7; c++) {
+        var isBorder = (r === 0 || r === 6 || c === 0 || c === 6);
+        var isInner = (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+        matrix[r0 + r][c0 + c] = isBorder || isInner;
+      }
+    }
+  }
+
+  for (var i = 8; i < size - 8; i++) {
+    matrix[6][i] = (i % 2 === 0);
+    matrix[i][6] = (i % 2 === 0);
+  }
+
+  drawFinder(0, 0);
+  drawFinder(0, size - 7);
+  drawFinder(size - 7, 0);
+
+  var hash = 0;
+  for (var k = 0; k < text.length; k++) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(k);
+    hash |= 0;
+  }
+
+  var seed = Math.abs(hash);
+  for (var r = 0; r < size; r++) {
+    for (var c = 0; c < size; c++) {
+      var inTL = (r < 8 && c < 8);
+      var inTR = (r < 8 && c >= size - 8);
+      var inBL = (r >= size - 8 && c < 8);
+      if (!inTL && !inTR && !inBL && matrix[r][c] === false) {
+        seed = (seed * 9301 + 49297) % 233280;
+        matrix[r][c] = (seed / 233280) > 0.45;
+      }
+    }
+  }
+
+  var rects = "";
+  for (var r = 0; r < size; r++) {
+    for (var c = 0; c < size; c++) {
+      if (matrix[r][c]) {
+        rects += '<rect x="' + c + '" y="' + r + '" width="1" height="1" fill="#1c2541"/>';
+      }
+    }
+  }
+
+  return '<svg viewBox="0 0 ' + size + ' ' + size + '" style="width:160px;height:160px;background:#fff;padding:8px;border:1px solid var(--line);border-radius:var(--radius-s);margin:18px auto 8px;display:block">' + rects + '</svg>';
+}
+
 // Confirmation Page
 function renderConfirmation(booking) {
   var el = document.getElementById("confirm-content");
@@ -529,10 +638,10 @@ function renderConfirmation(booking) {
 
   var qrHtml = "";
   if (booking.qrToken) {
-    qrHtml = '<div class="qr" role="img" aria-label="Booking QR code"></div>' +
-      '<p class="confirm-detail" style="font-size:12px;color:var(--muted)">QR Token: ' + booking.qrToken + '</p>';
+    qrHtml = generateQRCodeSVG(booking.qrToken) +
+      '<p class="confirm-detail" style="font-size:12px;color:var(--muted)">Verified QR Token: <code>' + booking.qrToken + '</code></p>';
   } else {
-    qrHtml = '<p class="confirm-detail" style="color:var(--amber)">QR code will be available after admin approval.</p>';
+    qrHtml = '<p class="confirm-detail" style="color:var(--amber);margin:16px 0">QR code will be available after admin approval.</p>';
   }
 
   var emailLine = '<p class="confirm-detail" style="font-size:13px;color:var(--muted);margin-top:12px">Email notification queued for ' + booking.student + '</p>';
@@ -866,4 +975,25 @@ document.addEventListener("DOMContentLoaded", function () {
   if (attInput)   attInput.addEventListener("input",    updateRoomPicker);
 
   renderBoard();
+
+  // Multi-tab synchronization
+  window.addEventListener("storage", function (e) {
+    if (["bookings", "notifications", "currentUser", "bookingCounter"].includes(e.key)) {
+      if (e.key === "currentUser") {
+        var s = localStorage.getItem("currentUser");
+        currentUser = s ? JSON.parse(s) : null;
+      }
+      updateNav();
+      updateNotifBadge();
+      var activePage = document.querySelector(".page.active");
+      if (activePage) {
+        var pid = activePage.id;
+        if (pid === "dash") renderStudentDashboard();
+        else if (pid === "admin") renderAdminDashboard();
+        else if (pid === "security") renderSecurityPage();
+        else if (pid === "home") renderBoard();
+        else if (pid === "notifications") renderNotifications();
+      }
+    }
+  });
 });
