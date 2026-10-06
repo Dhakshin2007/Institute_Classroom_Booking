@@ -67,6 +67,13 @@
         <h3 style="margin:0;font-size:15px"><span class="live-dot"></span>Room board</h3>
         <span id="board-time"></span>
       </div>
+      <div class="sim-bar">
+        <span class="sim-label">Simulate time:</span>
+        <button class="sim-btn active" id="sim-live-btn" onclick="setSimulatedTime(null, null, this)">Live Clock</button>
+        <button class="sim-btn" onclick="setSimulatedTime('Wednesday', '13:30', this)">Wed 1:30 PM (AI301)</button>
+        <button class="sim-btn" onclick="setSimulatedTime('Tuesday', '15:30', this)">Tue 3:30 PM (CS111)</button>
+        <button class="sim-btn" onclick="setSimulatedTime('Monday', '10:15', this)">Mon 10:15 AM (MA201)</button>
+      </div>
       <div id="board-rows"></div>
     </div>
   </div>

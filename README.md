@@ -37,34 +37,39 @@ classroom-booking/
 - Login with role-based navigation (student/admin/security)
 - Academic timetable used as constraint for room availability
 - Room conflict detection - checks timetable + existing bookings
-- Booking form with validation and auto-suggested rooms
+- 10-minute handover buffer notice on consecutive bookings
+- Booking form with validation, past-time checks, and auto-suggested rooms
 - Admin can approve, reject, or suggest alternative room
-- Student can accept/decline alternative suggestions
-- Booking status tracking: Pending → Approved → Occupied → Completed
-- QR code token generated on approval
+- Competing pending requests automatically resolved on admin approval
+- Student can cancel pending requests or accept/decline alternative suggestions
+- Booking status tracking: Pending → Approved → Occupied → Completed (or Cancelled/Rejected)
+- Procedural QR code SVG generated on approval
 - Security check-in (room becomes occupied) and check-out (room freed)
 - Room condition remarks on checkout
 - In-app notifications for all booking events
-- localStorage so data survives page refresh
+- Live Room Board time simulator for demoing off-hours / weekends
+- Multi-tab synchronization via storage events
+- localStorage persistence so data survives page refresh
 
 ## Demo flow
 
 1. Login as student → go to "Book a Room"
-2. Pick date, time → system shows available rooms
+2. Pick date, time → system shows available rooms with capacity and buffer info
 3. Select a room, fill purpose → submit
-4. Booking shows as PENDING
-5. Login as admin → see pending request → approve it
-6. Login as student again → status is now APPROVED, QR code available
+4. Booking shows as PENDING (can be cancelled if needed)
+5. Login as admin (or open in second tab) → see pending request → approve it
+6. Student dashboard updates automatically → status is APPROVED, view dynamic QR code
 7. Login as security → select QR token → simulate scan → room is OCCUPIED
 8. Click check-out with condition remark → room is AVAILABLE again
+9. Check Home page → use the "Simulate time" buttons to test active class collisions at any hour
 
 ## Known limitations
 
 - No real authentication (just demo emails)
-- No backend or database (uses localStorage)
-- No actual email sending (just shows a placeholder message)
-- QR scanning is simulated (no camera)
-- Timetable is hardcoded demo data
+- No backend or database (uses browser localStorage)
+- No actual email sending (shows simulation notice)
+- QR scanning is simulated (no camera access required)
+- Timetable uses demo dataset
 
 ## Problems faced and solutions
 
@@ -74,8 +79,16 @@ Different roles need different screens but it's all one page. Used a `show()` fu
 
 ### 2. Room availability wasn't dynamic
 
-Originally rooms just had static "Available"/"Occupied" labels. Fixed by creating `isRoomAvailable()` which checks both the academic timetable and existing bookings for time overlaps. The room picker now updates automatically when you change the date or time.
+Originally rooms just had static "Available"/"Occupied" labels. Fixed by creating `isRoomAvailable()` which checks both the academic timetable and existing bookings for time overlaps, and warns about 0-minute turnaround with prior classes.
 
 ### 3. Actions didn't actually change anything
 
 Buttons like "Approve" and "Check In" just navigated to another page without modifying state. Fixed by storing bookings in localStorage with proper status fields, and making each button actually update the booking status. The full lifecycle now works: Pending → Approved → Occupied → Completed.
+
+### 4. Demonstrating room status outside class hours
+
+Testing on weekends or evenings showed all rooms free because the live clock was outside timetable slots. Added a "Simulate time" toolbar on the Room Board to easily preview how the board behaves during class hours (e.g. Wednesday 1:30 PM).
+
+### 5. Multi-tab synchronization
+
+Opening student and admin in different tabs previously required manual page navigation to see updates. Added a `storage` event listener so changes in one tab immediately refresh the view in other open tabs.

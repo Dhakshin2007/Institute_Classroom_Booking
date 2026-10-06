@@ -1,5 +1,3 @@
-// admin.js - approve, reject, suggest alternative
-
 // Change booking status after admin approval
 function approveBooking(bookingId) {
   var bookings = getBookings();
@@ -10,6 +8,26 @@ function approveBooking(bookingId) {
 
   booking.status  = "Approved";
   booking.qrToken = "QR-" + booking.id;
+
+  // Check for competing pending requests for the same room and slot
+  var competing = bookings.filter(function (b) {
+    return b.id !== booking.id &&
+      b.room === booking.room &&
+      b.date === booking.date &&
+      b.status === "Pending" &&
+      timesOverlap(booking.startTime, booking.endTime, b.startTime, b.endTime);
+  });
+
+  competing.forEach(function (c) {
+    c.status = "Rejected";
+    c.adminRemark = "Slot allocated to booking " + booking.id + " (" + booking.purpose + ")";
+    addNotification(
+      c.student,
+      "Your request " + c.id + " for " + c.room + " was declined: slot allocated to another booking. Try booking an alternative room.",
+      "error"
+    );
+  });
+
   saveBookings(bookings);
 
   addNotification(
@@ -18,7 +36,7 @@ function approveBooking(bookingId) {
     "success"
   );
 
-  return { success: true, booking: booking };
+  return { success: true, booking: booking, competingCount: competing.length };
 }
 
 // Reject a booking with an optional remark
