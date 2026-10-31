@@ -1,0 +1,9 @@
+# Robots.txt for IIT Ropar CampuSync - AI511 Classroom Booking App
+# https://iitrpr-campusync.vercel.app/
+
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://iitrpr-campusync.vercel.app/sitemap.xml
+Sitemap: https://iitrpr-campusync.vercel.app/public/sitemap.xml
