@@ -67,8 +67,7 @@ var rooms = [
   { code: "EE-SH",     capacity: 50,  category: "Seminar Hall", facilities: ["Seminar Podium", "Dual Projector", "Wireless Mic", "Central AC"] },
   { code: "ME-1",      capacity: 50,  category: "ME-X/EE-X/CS-X/CY-X", facilities: ["Projector", "Mic & PA", "AC", "Whiteboard"] },
   { code: "ME-2",      capacity: 50,  category: "ME-X/EE-X/CS-X/CY-X", facilities: ["Projector", "Mic & PA", "AC", "Whiteboard"] },
-  { code: "ME-SH",     capacity: 50,  category: "Seminar Hall", facilities: ["Seminar Podium", "Dual Projector", "Wireless Mic", "Central AC"] },
-  { code: "L/P",       capacity: 50,  category: "Lab / Practical Venue", facilities: ["Workstations", "LAN Ports", "Central AC", "Whiteboard"] }
+  { code: "ME-SH",     capacity: 50,  category: "Seminar Hall", facilities: ["Seminar Podium", "Dual Projector", "Wireless Mic", "Central AC"] }
 ];
 
 // Initial fallback timetable

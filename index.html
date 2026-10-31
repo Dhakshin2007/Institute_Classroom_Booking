@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>IIT Ropar · Classroom Booking</title>
+<title>IIT Ropar — Classroom &amp; Venue Reservation Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
 
 <!-- HEADER / NAVIGATION (tabs are dynamically set by app.js) -->
 <header>
-  <div class="brand">
+  <div class="brand" onclick="if(currentUser)show('home')" style="cursor:pointer" title="Go to Home">
     IIT Ropar<small>Classroom & Venue Reservation Portal</small>
   </div>
   <nav class="tabs" id="main-nav"></nav>
@@ -153,6 +153,8 @@
                 </svg>
               </button>
             </div>
+            <div id="pw-strength-bar" style="height:3px;border-radius:2px;margin-top:5px;background:#e9e3d4;overflow:hidden"><div id="pw-strength-fill" style="height:100%;width:0;transition:width 0.3s,background 0.3s"></div></div>
+            <div id="pw-strength-label" style="font-size:11px;color:#726c5e;margin-top:3px"></div>
           </div>
           <div>
             <label for="su-confirm">Confirm Password</label>
@@ -171,6 +173,8 @@
             </div>
           </div>
         </div>
+
+        <div id="pw-match-hint" style="font-size:12px;margin-top:4px;display:none"></div>
 
         <div id="signup-error" class="auth-error"></div>
 
@@ -204,13 +208,6 @@
       <div class="board-head">
         <h3 style="margin:0;font-size:15px"><span class="live-dot"></span>Room board</h3>
         <span id="board-time"></span>
-      </div>
-      <div class="sim-bar">
-        <span class="sim-label">Simulate time:</span>
-        <button class="sim-btn active" id="sim-live-btn" onclick="setSimulatedTime(null, null, this)">Live Clock</button>
-        <button class="sim-btn" onclick="setSimulatedTime('Wednesday', '13:30', this)">Wed 1:30 PM (AI301)</button>
-        <button class="sim-btn" onclick="setSimulatedTime('Tuesday', '15:30', this)">Tue 3:30 PM (CS111)</button>
-        <button class="sim-btn" onclick="setSimulatedTime('Monday', '10:15', this)">Mon 10:15 AM (MA201)</button>
       </div>
       <div id="board-rows"></div>
     </div>
@@ -281,12 +278,6 @@
       <label for="filter-tt-room" style="font-size:13px;margin:0;font-weight:600">Filter by Room:</label>
       <select id="filter-tt-room" style="width:auto;margin:0;padding:6px 12px;font-size:13px" onchange="renderTimetable()">
         <option value="all">All Rooms</option>
-        <option value="CS-1">CS-1 (Capacity 80)</option>
-        <option value="LT-2">LT-2 (Capacity 150)</option>
-        <option value="PCE-1">PCE-1 (Capacity 60)</option>
-        <option value="AI-3">AI-3 (Capacity 45)</option>
-        <option value="CS-SH">CS-SH (Capacity 200)</option>
-        <option value="MA-2">MA-2 (Capacity 70)</option>
       </select>
     </div>
   </div>
@@ -340,9 +331,26 @@
       <button type="button" class="duration-btn" onclick="setBookingDuration(180)">+3 Hrs</button>
     </div>
 
-    <label style="margin-top:16px">Select an available room</label>
-    <div class="room-picker" id="room-picker"></div>
-    <div id="selected-room-banner" style="display:none"></div>
+    <div style="margin-top:18px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+        <label style="margin:0;font-weight:600">Select a Venue</label>
+        <span id="room-picker-subtitle" style="font-size:12px;color:var(--muted)">Intelligently suggested based on headcount &amp; purpose</span>
+      </div>
+
+      <!-- Quick Room Category Filters -->
+      <div class="room-category-filters" id="room-category-filters">
+        <button type="button" class="category-pill active" data-cat="recommended" onclick="setRoomCategoryFilter('recommended', this)">🌟 Top Recommendations</button>
+        <button type="button" class="category-pill" data-cat="seminar" onclick="setRoomCategoryFilter('seminar', this)">🏛️ Seminar Halls</button>
+        <button type="button" class="category-pill" data-cat="src" onclick="setRoomCategoryFilter('src', this)">📚 Lecture Theatres (SRC)</button>
+        <button type="button" class="category-pill" data-cat="dept" onclick="setRoomCategoryFilter('dept', this)">💻 Dept Classrooms</button>
+        <button type="button" class="category-pill" data-cat="all" onclick="setRoomCategoryFilter('all', this)">🌐 All 32 Venues</button>
+      </div>
+
+      <div id="room-picker-recommendation-note" style="margin-bottom:12px;font-size:12.5px;color:var(--teal);background:var(--teal-tint);padding:8px 12px;border-radius:var(--radius-s);display:none"></div>
+
+      <div class="room-picker" id="room-picker"></div>
+      <div id="selected-room-banner" style="display:none"></div>
+    </div>
 
     <label for="f-notes" style="margin-top:14px">Additional requirements</label>
     <textarea id="f-notes" placeholder="Projector, wireless microphone, recording, extended power backup…"></textarea>
@@ -407,12 +415,12 @@
     <p style="color:var(--muted);font-size:13.5px;margin-top:-2px">Verify student authorization at the classroom entrance to unlock the room.</p>
 
     <div class="scanner-modes">
-      <button type="button" class="scanner-mode-btn active" id="btn-mode-camera" onclick="setScannerMode('camera')">📷 Live Camera Scanner</button>
-      <button type="button" class="scanner-mode-btn" id="btn-mode-manual" onclick="setScannerMode('manual')">⌨ Manual / Dropdown</button>
+      <button type="button" class="scanner-mode-btn" id="btn-mode-camera" onclick="setScannerMode('camera')">📷 Live Camera Scanner</button>
+      <button type="button" class="scanner-mode-btn active" id="btn-mode-manual" onclick="setScannerMode('manual')">⌨ Manual / Dropdown</button>
     </div>
 
     <!-- Live Camera Scanner Container -->
-    <div id="camera-scanner-view" style="margin:14px auto;max-width:380px">
+    <div id="camera-scanner-view" style="display:none;margin:14px auto;max-width:380px">
       <div id="qr-reader" style="width:100%;margin-bottom:10px"></div>
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-primary btn-sm" id="btn-start-camera" onclick="startCameraScanner()">Start Camera Scan</button>
@@ -425,7 +433,7 @@
     </div>
 
     <!-- Manual Dropdown Container -->
-    <div id="manual-scanner-view" style="display:none;margin:14px auto;max-width:380px">
+    <div id="manual-scanner-view" style="margin:14px auto;max-width:380px">
       <label for="qr-select" style="text-align:left;display:block">Select approved booking token:</label>
       <select id="qr-select" style="margin:6px 0 12px;width:100%">
         <option value="">-- Select an approved booking --</option>
@@ -457,6 +465,70 @@
   <div class="card" style="padding:0" id="notif-list"></div>
 </section>
 
+<!-- Rejection Reason Modal -->
+<div id="reject-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(28,37,65,0.45);z-index:50;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-m);padding:28px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(28,37,65,0.2)">
+    <h3 style="margin:0 0 6px;font-size:18px">Reject Booking</h3>
+    <p style="color:var(--muted);font-size:13.5px;margin:0 0 14px" id="reject-modal-booking-label">Booking ID</p>
+    <label for="reject-reason-input" style="font-size:13px;font-weight:600">Reason for rejection (optional)</label>
+    <textarea id="reject-reason-input" placeholder="e.g. Room unavailable due to maintenance, conflicting institutional event..." style="min-height:80px;margin-top:6px"></textarea>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost btn-sm" onclick="closeRejectModal()">Cancel</button>
+      <button class="btn btn-rust btn-sm" onclick="confirmReject()">Reject Booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- Student Feedback & Rating Modal -->
+<div id="feedback-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(28,37,65,0.45);z-index:60;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-m);padding:28px 32px;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(28,37,65,0.2)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <h3 style="margin:0 0 4px;font-size:19px">Session Experience Feedback</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0" id="feedback-modal-subtitle">Room and booking info</p>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px" onclick="closeRatingModal()">✕</button>
+    </div>
+
+    <!-- Star Rating Selector -->
+    <div style="text-align:center;margin:20px 0 14px">
+      <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px">How was your classroom reservation?</div>
+      <div id="star-rating-container" class="star-rating-row" style="font-size:32px;cursor:pointer;color:#d4d4d4;user-select:none">
+        <span class="star-btn" data-value="1" onclick="setFeedbackRating(1)" onmouseover="hoverFeedbackRating(1)" onmouseout="resetHoverRating()">★</span>
+        <span class="star-btn" data-value="2" onclick="setFeedbackRating(2)" onmouseover="hoverFeedbackRating(2)" onmouseout="resetHoverRating()">★</span>
+        <span class="star-btn" data-value="3" onclick="setFeedbackRating(3)" onmouseover="hoverFeedbackRating(3)" onmouseout="resetHoverRating()">★</span>
+        <span class="star-btn" data-value="4" onclick="setFeedbackRating(4)" onmouseover="hoverFeedbackRating(4)" onmouseout="resetHoverRating()">★</span>
+        <span class="star-btn" data-value="5" onclick="setFeedbackRating(5)" onmouseover="hoverFeedbackRating(5)" onmouseout="resetHoverRating()">★</span>
+      </div>
+      <div id="rating-label-desc" style="font-size:12.5px;color:var(--brass-deep);font-weight:600;margin-top:4px;min-height:18px">Click a star to rate</div>
+    </div>
+
+    <!-- Quick Feedback Tags -->
+    <label style="font-size:12.5px;font-weight:600;margin:12px 0 6px">Room Features Highlight (Select all that apply):</label>
+    <div class="feedback-tag-row" id="feedback-tag-row">
+      <button type="button" class="fb-tag" onclick="toggleFeedbackTag(this, 'Projector &amp; Display OK')">📽️ Projector &amp; Display OK</button>
+      <button type="button" class="fb-tag" onclick="toggleFeedbackTag(this, 'Good Audio / Mic')">🎤 Good Audio / Mic</button>
+      <button type="button" class="fb-tag" onclick="toggleFeedbackTag(this, 'Central AC Worked')">❄️ AC Working Well</button>
+      <button type="button" class="fb-tag" onclick="toggleFeedbackTag(this, 'Clean Venue')">✨ Clean &amp; Orderly</button>
+      <button type="button" class="fb-tag" onclick="toggleFeedbackTag(this, 'Ample Power Sockets')">🔌 Power Sockets Available</button>
+    </div>
+
+    <!-- Comments -->
+    <label for="fb-comments" style="font-size:12.5px;font-weight:600;margin:14px 0 6px">Additional Comments for Estate &amp; Facilities Office:</label>
+    <textarea id="fb-comments" placeholder="e.g. Projector audio was crisp, whiteboard markers were fresh, AC kept room cool..." style="min-height:75px;font-size:13.5px"></textarea>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeRatingModal()">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-submit-feedback" onclick="submitFeedbackRating()">Save &amp; Sync Feedback</button>
+    </div>
+  </div>
+</div>
+
+<footer style="text-align:center;padding:24px 6%;font-size:12px;color:var(--muted);border-top:1px solid var(--line-soft);margin-top:40px">
+  &copy; 2025 Indian Institute of Technology Ropar &middot; Academic Affairs &amp; Estate Facilities Management &middot;
+  <a href="mailto:facilities@iitrpr.ac.in" style="color:var(--muted)">facilities@iitrpr.ac.in</a>
+</footer>
+
 <!-- SCRIPTS (load order: libraries, data, modules, app) -->
 <script src="js/supabase.min.js"></script>
 <script src="js/qrcode.min.js"></script>
@@ -467,6 +539,5 @@
 <script src="js/admin.js"></script>
 <script src="js/security.js"></script>
 <script src="js/app.js"></script>
-
 </body>
 </html>

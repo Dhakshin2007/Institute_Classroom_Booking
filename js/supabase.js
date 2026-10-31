@@ -54,17 +54,21 @@ async function loadRoomsFromSupabase() {
     }
 
     if (response.data && response.data.length > 0) {
-      var realRooms = response.data.map(function (r) {
-        var cap = parseInt(r.Assumed_Seating_Capacity, 10);
-        if (isNaN(cap) || cap <= 0) cap = 60;
-        return {
-          code: r.Room_Code,
-          capacity: cap,
-          category: r.Room_Category || "Classroom",
-          facilities: getFacilitiesForCategory(r.Room_Category, r.Room_Code),
-          sessionsCount: r.Scheduled_Sessions_Count || 0
-        };
-      });
+      var realRooms = response.data
+        .filter(function (r) {
+          return r.Room_Code && r.Room_Code !== "L/P" && r.Room_Code !== "ROOM";
+        })
+        .map(function (r) {
+          var cap = parseInt(r.Assumed_Seating_Capacity, 10);
+          if (isNaN(cap) || cap <= 0) cap = 60;
+          return {
+            code: r.Room_Code,
+            capacity: cap,
+            category: r.Room_Category || "Classroom",
+            facilities: getFacilitiesForCategory(r.Room_Category, r.Room_Code),
+            sessionsCount: r.Scheduled_Sessions_Count || 0
+          };
+        });
       // Update global in-memory rooms
       rooms = realRooms;
       isSupabaseConnected = true;
@@ -127,6 +131,19 @@ async function loadBookingsFromSupabase() {
 
     if (response.data) {
       var mapped = response.data.map(function (b) {
+        var rating = null;
+        var studentFeedback = null;
+        var feedbackTags = [];
+        if (b.notes && b.notes.indexOf("[Rating:") !== -1) {
+          var match = b.notes.match(/\[Rating:\s*(\d)\/5\s*★\s*\|\s*Feedback:\s*([^|\]]*)(?:\|\s*Tags:\s*([^\]]*))?\]/);
+          if (match) {
+            rating = parseInt(match[1], 10);
+            studentFeedback = match[2] ? match[2].trim() : "";
+            if (match[3]) {
+              feedbackTags = match[3].split(",").map(function(s){ return s.trim(); }).filter(Boolean);
+            }
+          }
+        }
         return {
           id: b.id,
           room: b.room_code,
@@ -142,10 +159,14 @@ async function loadBookingsFromSupabase() {
           status: b.status,
           qrToken: b.qr_token,
           suggestedAltRoom: b.suggested_alt_room,
+          alternativeRoom: b.suggested_alt_room,
           adminRemark: b.admin_remark,
           conditionRemark: b.condition_remark,
           checkinTime: b.checkin_time,
           checkoutTime: b.checkout_time,
+          rating: rating,
+          studentFeedback: studentFeedback,
+          feedbackTags: feedbackTags,
           createdAt: b.created_at
         };
       });
@@ -164,6 +185,15 @@ async function loadBookingsFromSupabase() {
 async function saveBookingToSupabase(b) {
   if (!supabaseClient) return;
   try {
+    var compiledNotes = b.notes || "";
+    if (b.rating) {
+      var fbStr = "[Rating: " + b.rating + "/5 ★ | Feedback: " + (b.studentFeedback || "Rated") + (b.feedbackTags && b.feedbackTags.length ? " | Tags: " + b.feedbackTags.join(", ") : "") + "]";
+      if (compiledNotes.indexOf("[Rating:") !== -1) {
+        compiledNotes = compiledNotes.replace(/\s*\[Rating:[^\]]+\]/g, "");
+      }
+      compiledNotes = (compiledNotes ? compiledNotes.trim() + " " : "") + fbStr;
+    }
+
     var payload = {
       id: b.id,
       room_code: b.room,
@@ -175,10 +205,10 @@ async function saveBookingToSupabase(b) {
       start_time: b.startTime,
       end_time: b.endTime,
       attendees: parseInt(b.attendees, 10) || 1,
-      notes: b.notes || null,
+      notes: compiledNotes ? compiledNotes.trim() : null,
       status: b.status,
       qr_token: b.qrToken || null,
-      suggested_alt_room: b.suggestedAltRoom || null,
+      suggested_alt_room: b.suggestedAltRoom || b.alternativeRoom || null,
       admin_remark: b.adminRemark || null,
       condition_remark: b.conditionRemark || null,
       checkin_time: b.checkinTime || null,

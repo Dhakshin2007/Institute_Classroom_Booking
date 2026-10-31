@@ -4,6 +4,7 @@
 var currentUser  = null;
 var selectedRoom = null;
 var adminCurrentFilter = "all";
+var currentRoomCategory = "recommended";
 
 // HTML Sanitization
 function escapeHtml(str) {
@@ -287,7 +288,7 @@ function updateNav() {
 
   if (currentUser.role === "student") {
     tabs += '<button data-target="dash" onclick="show(\'dash\')">Dashboard</button>';
-    tabs += '<button data-target="book" onclick="show(\'book\')">Book a Room</button>';
+    tabs += '<button data-target="book" onclick="show(\'book\')">Book Room</button>';
   }
   if (currentUser.role === "admin") {
     tabs += '<button data-target="admin" onclick="show(\'admin\')">Admin Dashboard</button>';
@@ -434,7 +435,10 @@ async function handleSignUp() {
   }
 
   var btn = document.getElementById("btn-signup");
-  if (btn) btn.disabled = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Creating account…';
+  }
 
   // Supabase Auth Integration
   if (typeof supabaseClient !== "undefined" && supabaseClient) {
@@ -485,7 +489,10 @@ async function handleSignUp() {
   else if (currentUser.role === "security") show("security");
 
   showToast("Account created successfully! Welcome, " + currentUser.name + ".", "success");
-  if (btn) btn.disabled = false;
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = "Create Account & Log In";
+  }
 }
 
 // Sign In Handler
@@ -502,7 +509,10 @@ async function handleLogin() {
   }
 
   var btn = document.getElementById("btn-login");
-  if (btn) btn.disabled = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Signing in…';
+  }
 
   // 1. Check Demo Accounts
   var user = demoUsers.find(function (u) {
@@ -545,7 +555,10 @@ async function handleLogin() {
     }
   }
 
-  if (btn) btn.disabled = false;
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = "Sign In";
+  }
 
   if (!user) {
     if (errorEl) {
@@ -685,19 +698,21 @@ function renderStudentDashboard() {
 
   var bookings = getBookings().filter(function (b) { return b.student === currentUser.email; });
 
-  // Stats
+  // Stats (personalized to student)
   var statsEl = document.getElementById("dash-stats");
   if (statsEl) {
-    var todayClasses = getTodayClasses().length;
-    var availNow = rooms.filter(function (r) { return getRoomStatus(r.code).status === "free"; }).length;
-    var latestBooking = bookings.length > 0 ? bookings[bookings.length - 1] : null;
-    var latestStatus = latestBooking ? getStatusBadge(latestBooking.status) : '<span class="badge badge-ink">None</span>';
-    var latestSub = latestBooking ? latestBooking.room + " · " + formatDate(latestBooking.date) : "No bookings yet";
+    var myTotal = bookings.length;
+    var myApproved = bookings.filter(function (b) {
+      return b.status === "Approved" || b.status === "Occupied" || b.status === "Completed";
+    }).length;
+    var myPending = bookings.filter(function (b) {
+      return b.status === "Pending" || b.status === "Alternative Suggested";
+    }).length;
 
     statsEl.innerHTML =
-      '<div class="card stat-card"><div class="stat-label">Today\'s classes</div><div class="stat-num">' + todayClasses + '</div><div class="stat-sub">Academic schedule</div></div>' +
-      '<div class="card stat-card"><div class="stat-label">Available rooms</div><div class="stat-num">' + availNow + '</div><div class="stat-sub">Across campus, right now</div></div>' +
-      '<div class="card stat-card"><div class="stat-label">Latest booking</div><div class="stat-num" style="font-size:20px;margin-top:6px">' + latestStatus + '</div><div class="stat-sub">' + latestSub + '</div></div>';
+      '<div class="card stat-card"><div class="stat-label">My Requests</div><div class="stat-num">' + myTotal + '</div><div class="stat-sub">Submitted all-time</div></div>' +
+      '<div class="card stat-card"><div class="stat-label">Approved &amp; Active</div><div class="stat-num" style="color:var(--teal)">' + myApproved + '</div><div class="stat-sub">Confirmed bookings</div></div>' +
+      '<div class="card stat-card"><div class="stat-label">Pending Review</div><div class="stat-num" style="color:var(--amber)">' + myPending + '</div><div class="stat-sub">Awaiting admin action</div></div>';
   }
 
   // Today's timetable
@@ -705,7 +720,7 @@ function renderStudentDashboard() {
   if (ttEl) {
     var todayEntries = getTodayClasses();
     if (todayEntries.length === 0) {
-      ttEl.innerHTML = '<div class="empty-state"><div class="icon">📚</div>No classes today</div>';
+      ttEl.innerHTML = '<div class="empty-state"><div class="icon">📚</div>No classes scheduled for today.</div>';
     } else {
       ttEl.innerHTML = todayEntries.map(function (e) {
         return '<div class="tl-row"><div class="tl-time">' + formatTime(e.start) + '</div><div class="tl-body"><strong>' + e.course + ' · ' + e.title + '</strong><span>Room ' + e.room + '</span></div></div>';
@@ -717,7 +732,7 @@ function renderStudentDashboard() {
   var listEl = document.getElementById("dash-bookings");
   if (listEl) {
     if (bookings.length === 0) {
-      listEl.innerHTML = '<div class="empty-state"><div class="icon">📋</div>No bookings yet. <a href="#" onclick="show(\'book\');return false">Request a room</a>.</div>';
+      listEl.innerHTML = '<div class="empty-state"><div class="icon">📋</div><strong>No Bookings Yet</strong><p style="font-size:13px;color:var(--muted);max-width:32ch;margin:6px auto 14px">Submit your first classroom reservation request and track approval in real time.</p><button class="btn btn-primary btn-sm" onclick="show(\'book\')">+ Request a Room</button></div>';
     } else {
       listEl.innerHTML = bookings.slice().reverse().map(function (b) {
         var actions = "";
@@ -734,6 +749,23 @@ function renderStudentDashboard() {
           actions = '<div class="actions"><button class="btn btn-ghost btn-sm" onclick="showQR(\'' + b.id + '\')">View QR Code</button></div>';
         } else if (b.status === "Rejected" && b.adminRemark) {
           actions = '<div class="actions"><p style="font-size:13px;color:var(--rust);margin:4px 0">Reason: ' + b.adminRemark + '</p></div>';
+        } else if (b.status === "Completed") {
+          if (b.rating) {
+            var starStr = "★".repeat(b.rating) + "☆".repeat(5 - b.rating);
+            var tagText = (b.feedbackTags && b.feedbackTags.length) ? ' · <span style="color:var(--muted)">' + escapeHtml(b.feedbackTags.join(", ")) + '</span>' : '';
+            var commentText = b.studentFeedback ? '<p style="font-size:12.5px;color:var(--ink-soft);margin:4px 0 0;font-style:italic">"' + escapeHtml(b.studentFeedback) + '"' + tagText + '</p>' : '';
+            actions = '<div class="actions" style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line-soft)">' +
+              '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+              '<span style="color:#e59819;font-size:14px;letter-spacing:1px">' + starStr + '</span>' +
+              '<span style="font-size:12.5px;font-weight:600;color:var(--ink)">Rated ' + b.rating + '/5</span>' +
+              '<button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11px" onclick="openRatingModal(\'' + escapeHtml(b.id) + '\')">Edit Feedback</button>' +
+              '</div>' + commentText + '</div>';
+          } else {
+            actions = '<div class="actions" style="margin-top:10px">' +
+              '<button class="btn btn-primary btn-sm" style="background:var(--brass-deep)" onclick="openRatingModal(\'' + escapeHtml(b.id) + '\')">⭐ Rate Experience &amp; Leave Feedback</button>' +
+              '<span style="font-size:12px;color:var(--muted);margin-left:8px">Session completed — let us know how the room was</span>' +
+              '</div>';
+          }
         }
 
         return '<div class="booking-card">' +
@@ -792,6 +824,29 @@ function showQR(bookingId) {
 function renderTimetable() {
   var tbody = document.getElementById("timetable-body");
   if (!tbody) return;
+
+  // Dynamically populate room filter options from real rooms/timetable
+  var roomFilterEl = document.getElementById("filter-tt-room");
+  if (roomFilterEl && roomFilterEl.options.length <= 1) {
+    var roomCodes = {};
+    if (Array.isArray(rooms)) {
+      rooms.forEach(function (r) {
+        if (r.code && r.code !== "L/P" && r.code !== "ROOM") roomCodes[r.code] = r.capacity;
+      });
+    }
+    if (Array.isArray(timetable)) {
+      timetable.forEach(function (t) {
+        if (t.room && t.room !== "L/P" && t.room !== "ROOM" && !roomCodes[t.room]) roomCodes[t.room] = "";
+      });
+    }
+    var sortedCodes = Object.keys(roomCodes).sort();
+    sortedCodes.forEach(function (rc) {
+      var opt = document.createElement("option");
+      opt.value = rc;
+      opt.textContent = rc + (roomCodes[rc] ? " (Capacity " + roomCodes[rc] + ")" : "");
+      roomFilterEl.appendChild(opt);
+    });
+  }
 
   var dayFilter = document.getElementById("filter-tt-day") ? document.getElementById("filter-tt-day").value : "all";
   var roomFilter = document.getElementById("filter-tt-room") ? document.getElementById("filter-tt-room").value : "all";
@@ -857,7 +912,180 @@ function renderBookingForm() {
     if (!dateInput.value) dateInput.value = todayLocal;
   }
 
+  // Set smart default start/end times if not already set or at default
+  var startInput = document.getElementById("f-start");
+  var endInput = document.getElementById("f-end");
+  if (startInput && endInput) {
+    var now = new Date();
+    var currentH = now.getHours();
+    var targetStartH = currentH + 1;
+    if (targetStartH < 8) targetStartH = 9;
+    if (targetStartH >= 20) {
+      targetStartH = 9;
+      var tomorrow = new Date(now.getTime() + 86400000);
+      var tomorrowStr = (typeof getLocalDateString === "function") ? getLocalDateString(tomorrow) : tomorrow.toISOString().split("T")[0];
+      if (dateInput) dateInput.value = tomorrowStr;
+    }
+    var startHStr = String(targetStartH).padStart(2, "0") + ":00";
+    var targetEndH = targetStartH + 2;
+    if (targetEndH > 22) targetEndH = 22;
+    var endHStr = String(targetEndH).padStart(2, "0") + ":00";
+
+    if (!startInput.value || startInput.value === "15:00") {
+      startInput.value = startHStr;
+    }
+    if (!endInput.value || endInput.value === "17:00") {
+      endInput.value = endHStr;
+    }
+  }
+
+  currentRoomCategory = "recommended";
+  var pills = document.querySelectorAll("#room-category-filters .category-pill");
+  pills.forEach(function (p) {
+    if (p.getAttribute("data-cat") === "recommended") p.classList.add("active");
+    else p.classList.remove("active");
+  });
+
   updateRoomPicker();
+}
+
+function setRoomCategoryFilter(category, btn) {
+  currentRoomCategory = category;
+  var pills = document.querySelectorAll("#room-category-filters .category-pill");
+  pills.forEach(function (p) { p.classList.remove("active"); });
+  if (btn) {
+    btn.classList.add("active");
+  } else {
+    var matching = document.querySelector('#room-category-filters .category-pill[data-cat="' + category + '"]');
+    if (matching) matching.classList.add("active");
+  }
+  updateRoomPicker();
+}
+
+// Intelligent Recommendation Scoring Engine
+function getRecommendedRooms(roomList, purpose, attendees, notes) {
+  var scored = roomList.map(function (r) {
+    var score = 0;
+    var reasons = [];
+
+    // Base availability check
+    if (!r.available) {
+      return { room: r, score: -1000, reasons: [r.reason || "Unavailable in this slot"] };
+    }
+
+    // 1. Capacity & Nearest-Fit Matching
+    if (attendees > 0) {
+      var diff = r.capacity - attendees;
+      var absDiff = Math.abs(diff);
+      var pctDiff = absDiff / attendees;
+
+      if (diff >= 0) {
+        if (diff <= 15 || pctDiff <= 0.15) {
+          score += 180; // Ideal fit
+          reasons.push("Optimal capacity fit (" + r.capacity + " seats for " + attendees + " attendees)");
+        } else if (pctDiff <= 0.6) {
+          score += 110; // Comfortable fit
+          reasons.push("Comfortable fit (" + r.capacity + " seats)");
+        } else if (pctDiff <= 1.5) {
+          score += 45; // Acceptable but oversized
+          reasons.push("Room seats " + r.capacity);
+        } else {
+          score -= 90; // Excessive capacity
+          reasons.push("Large venue (" + r.capacity + " seats)");
+        }
+      } else {
+        // Room capacity is slightly below requested headcount (e.g. 125 for 128)
+        if (absDiff <= 5 || pctDiff <= 0.05) {
+          score += 165; // High priority near match!
+          reasons.unshift("Near capacity match (" + r.capacity + " seats for ~" + attendees + " expected — only " + absDiff + " seats diff)");
+          r.isNearFit = true;
+          r.seatDiff = absDiff;
+        } else if (absDiff <= 10 || pctDiff <= 0.10) {
+          score += 120; // Good near match
+          reasons.unshift("Near capacity match (" + r.capacity + " seats — ~" + absDiff + " seats short, suitable if attendance fluctuates)");
+          r.isNearFit = true;
+          r.seatDiff = absDiff;
+        } else if (absDiff <= 20 || pctDiff <= 0.20) {
+          score += 40;
+          reasons.push("Near capacity (" + r.capacity + " seats, ~" + absDiff + " short of target)");
+          r.isNearFit = true;
+          r.seatDiff = absDiff;
+        } else {
+          score -= 350;
+          reasons.push("Significantly below required (" + r.capacity + " vs " + attendees + " seats)");
+          r.isNearFit = false;
+        }
+      }
+    } else {
+      // General versatile rooms if headcount not specified yet
+      if (r.capacity >= 50 && r.capacity <= 100) {
+        score += 50;
+      }
+    }
+
+    // 2. Keyword & Purpose relevance
+    var pLower = ((purpose || "") + " " + (notes || "")).toLowerCase();
+    var code = (r.code || "").toUpperCase();
+    var cat = (r.category || "").toLowerCase();
+
+    // Seminar / Presentation / Meeting keywords
+    if (/seminar|presentation|talk|speaker|guest|discussion|review|meeting|agm|club|orientation/.test(pLower)) {
+      if (code.includes("-SH") || cat.includes("seminar")) {
+        score += 120;
+        reasons.unshift("Seminar hall with stage podium & wireless mic");
+      }
+    }
+
+    // Hackathon / Tech / Coding / Workshop keywords
+    if (/workshop|hackathon|coding|python|ai|ml|data|robotics|hands-on|programming|project|lan/.test(pLower)) {
+      if (code.startsWith("CS-") || code.startsWith("AI-")) {
+        score += 130;
+        reasons.unshift("Equipped with high-speed LAN, 4K display & power benches");
+      } else if (code.startsWith("EE-")) {
+        score += 80;
+        reasons.unshift("Equipped with lab power benches & projector");
+      }
+    }
+
+    // Large scale events / Keynotes
+    if (/fest|cultural|annual|keynote|general body|convocation|plenary|freshers|farewell/.test(pLower) || attendees >= 140) {
+      if (code === "AUDITORIUM") {
+        score += 220;
+        reasons.unshift("Full auditorium stage, PA system & tiered seating");
+      }
+    }
+
+    // Lecture / Exam / Quiz / Study keywords
+    if (/lecture|class|exam|quiz|math|study|tutorial|test|algebra/.test(pLower)) {
+      if (code.startsWith("SRC-") || code.startsWith("S-")) {
+        score += 90;
+        reasons.unshift("Tiered classroom seating & large whiteboard");
+      }
+    }
+
+    // Handover buffer bonus
+    if (!r.bufferNotice) {
+      score += 25;
+    } else {
+      score -= 15;
+    }
+
+    // Pending requests penalty
+    if (r.pendingCount === 0) {
+      score += 20;
+    } else {
+      score -= r.pendingCount * 15;
+    }
+
+    return {
+      room: r,
+      score: score,
+      reasons: reasons
+    };
+  });
+
+  scored.sort(function (a, b) { return b.score - a.score; });
+  return scored;
 }
 
 function updateRoomPicker() {
@@ -865,13 +1093,19 @@ function updateRoomPicker() {
   var startTime = document.getElementById("f-start").value;
   var endTime = document.getElementById("f-end").value;
   var attendees = document.getElementById("f-attendees").value;
+  var purpose = document.getElementById("f-purpose") ? document.getElementById("f-purpose").value.trim() : "";
+  var notes = document.getElementById("f-notes") ? document.getElementById("f-notes").value.trim() : "";
+  var attendeesNum = parseInt(attendees, 10) || 0;
+
   var el = document.getElementById("room-picker");
   var bannerEl = document.getElementById("selected-room-banner");
+  var noteEl = document.getElementById("room-picker-recommendation-note");
 
   if (!date || !startTime || !endTime) {
     el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:20px"><div class="icon">📅</div>Select date, start time, and end time to see available rooms.</div>';
     selectedRoom = null;
     if (bannerEl) bannerEl.style.display = "none";
+    if (noteEl) noteEl.style.display = "none";
     return;
   }
 
@@ -879,6 +1113,7 @@ function updateRoomPicker() {
     el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:20px"><div class="icon">⚠️</div>End time must be after start time.</div>';
     selectedRoom = null;
     if (bannerEl) bannerEl.style.display = "none";
+    if (noteEl) noteEl.style.display = "none";
     return;
   }
 
@@ -886,6 +1121,7 @@ function updateRoomPicker() {
     el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:20px"><div class="icon">⏰</div>Start time (' + formatTime(startTime) + ') is in the past for selected date. Please pick an upcoming time slot.</div>';
     selectedRoom = null;
     if (bannerEl) bannerEl.style.display = "none";
+    if (noteEl) noteEl.style.display = "none";
     return;
   }
 
@@ -900,14 +1136,75 @@ function updateRoomPicker() {
     }
   }
 
-  el.innerHTML = roomList.map(function (r) {
+  // Update recommendation note banner
+  if (noteEl) {
+    if (currentRoomCategory === "recommended") {
+      noteEl.style.display = "block";
+      if (attendeesNum > 0 && purpose) {
+        noteEl.innerHTML = "✨ <strong>Top Picks for \"" + escapeHtml(purpose) + "\" (" + attendeesNum + " attendees):</strong> Recommended venues matching your headcount and event needs.";
+      } else if (attendeesNum > 0) {
+        noteEl.innerHTML = "✨ <strong>Top Picks for " + attendeesNum + " attendees:</strong> Ranked by optimal seating capacity fit and available amenities.";
+      } else if (purpose) {
+        noteEl.innerHTML = "✨ <strong>Top Picks for \"" + escapeHtml(purpose) + "\":</strong> Ranked by venue equipment and room layout suitability.";
+      } else {
+        noteEl.innerHTML = "💡 <strong>Smart Suggestions:</strong> Enter expected attendees or purpose above to instantly refine recommendations.";
+      }
+    } else {
+      noteEl.style.display = "none";
+    }
+  }
+
+  // Score rooms
+  var scoredList = getRecommendedRooms(roomList, purpose, attendeesNum, notes);
+  var displayedRooms = [];
+
+  if (currentRoomCategory === "recommended") {
+    // Top 4 best matching available rooms
+    var positiveScored = scoredList.filter(function (item) { return item.score > 0 && item.room.available; });
+    if (positiveScored.length >= 3) {
+      displayedRooms = positiveScored.slice(0, 4);
+    } else {
+      var availableScored = scoredList.filter(function (item) { return item.room.available; });
+      displayedRooms = availableScored.slice(0, 4);
+    }
+  } else if (currentRoomCategory === "seminar") {
+    displayedRooms = scoredList.filter(function (item) {
+      var c = item.room.code.toUpperCase();
+      var cat = (item.room.category || "").toLowerCase();
+      return c.includes("-SH") || cat.includes("seminar") || c === "AUDITORIUM";
+    });
+  } else if (currentRoomCategory === "src") {
+    displayedRooms = scoredList.filter(function (item) {
+      return item.room.code.toUpperCase().startsWith("SRC-");
+    });
+  } else if (currentRoomCategory === "dept") {
+    displayedRooms = scoredList.filter(function (item) {
+      var c = item.room.code.toUpperCase();
+      return c.startsWith("CS-") || c.startsWith("EE-") || c.startsWith("ME-") || c.startsWith("CY-") || c.startsWith("S-");
+    });
+  } else {
+    // "all"
+    displayedRooms = scoredList;
+  }
+
+  if (displayedRooms.length === 0) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:24px"><div class="icon">🏫</div>No venues found in this category for this slot. <button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="setRoomCategoryFilter(\'all\')">View All Venues</button></div>';
+    return;
+  }
+
+  var html = displayedRooms.map(function (item) {
+    var r = item.room;
     var disabled = !r.available;
     var capWarn = r.available && !r.capacityOk;
     var isSelected = (selectedRoom === r.code);
+    var isRecommended = (currentRoomCategory === "recommended" && item.score > 0 && r.available);
     var statusLine = "";
 
     if (disabled) {
       statusLine = r.reason || "Occupied";
+    } else if (r.isNearCapacity || r.isNearFit) {
+      var diffVal = r.seatDiff || (attendeesNum - r.capacity);
+      statusLine = "Capacity " + r.capacity + " · ⚡ Near fit (~" + diffVal + " seats diff · suitable if attendance fluctuates)";
     } else if (capWarn) {
       statusLine = "Capacity " + r.capacity + " · ⚠ Below expected headcount (" + attendees + ")";
     } else {
@@ -927,14 +1224,34 @@ function updateRoomPicker() {
       facBadges = '<div class="room-fac">' + r.facilities.map(function(f){ return '<span class="room-fac-tag">' + escapeHtml(f) + '</span>'; }).join('') + '</div>';
     }
 
-    return '<button type="button" class="room-option ' + (disabled ? 'disabled' : '') + ' ' + (isSelected ? 'selected' : '') + '" ' +
+    var recHighlight = "";
+    if (isRecommended) {
+      var reasonText = (item.reasons && item.reasons.length > 0) ? item.reasons[0] : "Best Capacity Match";
+      if (r.isNearFit || r.isNearCapacity) {
+        recHighlight = '<div class="rec-badge" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a">⚡ Near Capacity Match</div><div class="rec-reason" style="color:#b45309">✓ ' + escapeHtml(reasonText) + '</div>';
+      } else {
+        recHighlight = '<div class="rec-badge">🌟 Best Match</div><div class="rec-reason">✓ ' + escapeHtml(reasonText) + '</div>';
+      }
+    }
+
+    return '<button type="button" class="room-option ' + (disabled ? 'disabled' : '') + ' ' + (isSelected ? 'selected' : '') + (isRecommended ? ' recommended-card' : '') + '" ' +
       (disabled ? 'disabled' : '') + ' data-room="' + escapeHtml(r.code) + '" onclick="selectRoom(\'' + escapeHtml(r.code) + '\')">' +
-      '<div class="rn">' + escapeHtml(r.code) + (isSelected ? ' <span style="font-size:12px;color:var(--teal)">✓ Selected</span>' : '') + '</div>' +
+      (recHighlight ? recHighlight : '') +
+      '<div class="rn" style="' + (recHighlight ? 'margin-top:4px' : '') + '">' + escapeHtml(r.code) + (isSelected ? ' <span style="font-size:12px;color:var(--teal)">✓ Selected</span>' : '') + '</div>' +
       '<div class="rd">' + escapeHtml(statusLine) + '</div>' +
       facBadges +
       extraBadges +
       '</button>';
   }).join("");
+
+  if (currentRoomCategory === "recommended") {
+    html += '<div style="grid-column:1/-1;text-align:center;padding:12px 14px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius-s);margin-top:4px">' +
+      '<span style="font-size:13px;color:var(--muted)">Need a specific hall or want to browse the entire campus inventory? </span>' +
+      '<button type="button" class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:12px;margin-left:6px" onclick="setRoomCategoryFilter(\'all\')">Browse All 32 Venues &rarr;</button>' +
+      '</div>';
+  }
+
+  el.innerHTML = html;
 }
 
 function selectRoom(code) {
@@ -1204,6 +1521,7 @@ function renderAdminDashboard() {
           '<div class="meta"><span>' + escapeHtml(b.studentName) + '</span><span>🏫 ' + escapeHtml(b.room) + '</span><span>📅 ' + formatDate(b.date) + '</span><span>🕐 ' + formatTime(b.startTime) + '–' + formatTime(b.endTime) + '</span></div></div>' +
           '<div>' + getStatusBadge(b.status) + '</div></div>' +
           (b.conditionRemark ? '<p style="font-size:12px;color:var(--muted);margin:6px 0 0">Room condition: ' + escapeHtml(b.conditionRemark) + '</p>' : '') +
+          (b.rating ? '<div style="margin-top:6px;font-size:12px;color:var(--ink);background:var(--paper);border:1px solid var(--line-soft);padding:4px 10px;border-radius:4px;display:inline-block"><span style="color:#e59819;font-weight:600">★ ' + b.rating + '/5</span> · Student Feedback: "<em>' + escapeHtml(b.studentFeedback || 'Session completed') + '</em>"' + (b.feedbackTags && b.feedbackTags.length ? ' · <span style="color:var(--muted)">Tags: ' + escapeHtml(b.feedbackTags.join(', ')) + '</span>' : '') + '</div>' : '') +
           '</div>';
       }).join("");
     }
@@ -1224,11 +1542,36 @@ function handleApprove(bookingId) {
   }
 }
 
+var _pendingRejectId = null;
+
 function handleReject(bookingId) {
-  var remark = prompt("Rejection reason (optional):");
-  var result = rejectBooking(bookingId, remark || "Request declined by admin.");
+  _pendingRejectId = bookingId;
+  var overlay = document.getElementById("reject-modal-overlay");
+  var label = document.getElementById("reject-modal-booking-label");
+  var input = document.getElementById("reject-reason-input");
+  if (overlay) overlay.style.display = "flex";
+  if (label) label.textContent = "Booking Reference: " + bookingId;
+  if (input) {
+    input.value = "";
+    setTimeout(function () { input.focus(); }, 60);
+  }
+}
+
+function closeRejectModal() {
+  var overlay = document.getElementById("reject-modal-overlay");
+  if (overlay) overlay.style.display = "none";
+  _pendingRejectId = null;
+}
+
+function confirmReject() {
+  if (!_pendingRejectId) return;
+  var input = document.getElementById("reject-reason-input");
+  var remark = (input && input.value.trim()) ? input.value.trim() : "Request declined by admin.";
+  var targetId = _pendingRejectId;
+  var result = rejectBooking(targetId, remark);
+  closeRejectModal();
   if (result.success) {
-    showToast("Booking " + bookingId + " rejected.", "info");
+    showToast("Booking " + targetId + " rejected.", "info");
     renderAdminDashboard();
   } else {
     showToast(result.error, "error");
@@ -1541,20 +1884,141 @@ function renderNotifications() {
   }).join("");
 }
 
-// Reset data to initial institute demo state
-function clearAllData() {
-  if (confirm("Reset portal to initial institute demo data?")) {
-    localStorage.removeItem("bookings");
-    localStorage.removeItem("notifications");
-    localStorage.removeItem("bookingCounter");
-    seedInstituteData();
-    showToast("Portal reset to initial institute demo state.", "info");
-    if (currentUser) {
-      if (currentUser.role === "student") renderStudentDashboard();
-      else if (currentUser.role === "admin") renderAdminDashboard();
-      else if (currentUser.role === "security") renderSecurityPage();
+// Student Rating & Feedback System
+var _ratingBookingId = null;
+var _currentRatingValue = 5;
+var _selectedFeedbackTags = [];
+
+function openRatingModal(bookingId) {
+  _ratingBookingId = bookingId;
+  var bookings = getBookings();
+  var b = bookings.find(function (x) { return x.id === bookingId; });
+  if (!b) return;
+
+  var overlay = document.getElementById("feedback-modal-overlay");
+  var subtitle = document.getElementById("feedback-modal-subtitle");
+  var commentsEl = document.getElementById("fb-comments");
+  var tagsContainer = document.getElementById("feedback-tag-row");
+
+  if (subtitle) {
+    subtitle.textContent = b.room + " · " + b.purpose + " (" + formatDate(b.date) + ")";
+  }
+
+  // Pre-fill existing rating if already rated
+  _currentRatingValue = b.rating || 5;
+  _selectedFeedbackTags = Array.isArray(b.feedbackTags) ? b.feedbackTags.slice() : [];
+  if (commentsEl) commentsEl.value = b.studentFeedback || "";
+
+  renderStarDisplay(_currentRatingValue);
+
+  // Update tag button selected states
+  if (tagsContainer) {
+    tagsContainer.querySelectorAll(".fb-tag").forEach(function (tagBtn) {
+      var tagText = tagBtn.textContent.replace(/^[^\s]+\s*/, "").trim();
+      if (_selectedFeedbackTags.indexOf(tagText) !== -1) {
+        tagBtn.classList.add("selected");
+      } else {
+        tagBtn.classList.remove("selected");
+      }
+    });
+  }
+
+  if (overlay) overlay.style.display = "flex";
+}
+
+function closeRatingModal() {
+  var overlay = document.getElementById("feedback-modal-overlay");
+  if (overlay) overlay.style.display = "none";
+  _ratingBookingId = null;
+}
+
+function setFeedbackRating(val) {
+  _currentRatingValue = val;
+  renderStarDisplay(val);
+}
+
+function hoverFeedbackRating(val) {
+  renderStarDisplay(val);
+}
+
+function resetHoverRating() {
+  renderStarDisplay(_currentRatingValue || 5);
+}
+
+function renderStarDisplay(val) {
+  var stars = document.querySelectorAll("#star-rating-container .star-btn");
+  stars.forEach(function (s, idx) {
+    if (idx < val) {
+      s.classList.add("active");
+    } else {
+      s.classList.remove("active");
     }
-    renderBoard();
+  });
+
+  var descMap = {
+    1: "1/5 — Needs Significant Improvement",
+    2: "2/5 — Below Expectations",
+    3: "3/5 — Average / Satisfactory",
+    4: "4/5 — Very Good Venue Setup",
+    5: "5/5 — Excellent Experience"
+  };
+  var descEl = document.getElementById("rating-label-desc");
+  if (descEl) descEl.textContent = descMap[val] || (val + "/5 Stars");
+}
+
+function toggleFeedbackTag(btn, tag) {
+  var cleanTag = btn.textContent.replace(/^[^\s]+\s*/, "").trim();
+  var idx = _selectedFeedbackTags.indexOf(cleanTag);
+  if (idx === -1) {
+    _selectedFeedbackTags.push(cleanTag);
+    btn.classList.add("selected");
+  } else {
+    _selectedFeedbackTags.splice(idx, 1);
+    btn.classList.remove("selected");
+  }
+}
+
+async function submitFeedbackRating() {
+  if (!_ratingBookingId) return;
+  var bookings = getBookings();
+  var b = bookings.find(function (x) { return x.id === _ratingBookingId; });
+  if (!b) return;
+
+  var comments = document.getElementById("fb-comments") ? document.getElementById("fb-comments").value.trim() : "";
+  var ratingVal = _currentRatingValue || 5;
+
+  b.rating = ratingVal;
+  b.studentFeedback = comments;
+  b.feedbackTags = _selectedFeedbackTags.slice();
+  b.feedbackSubmittedAt = new Date().toISOString();
+
+  // Save to local storage and sync to Supabase
+  saveBookings(bookings);
+
+  closeRatingModal();
+  showToast("⭐ Feedback recorded (" + ratingVal + "/5 stars)! Stored in cloud database.", "success");
+
+  // Re-render student dashboard
+  renderStudentDashboard();
+}
+
+// Sync data with Supabase backend
+async function clearAllData() {
+  if (typeof initSupabase === "function") {
+    showToast("Synchronizing with Supabase database...", "info");
+    try {
+      await initSupabase();
+      if (currentUser) {
+        if (currentUser.role === "student") renderStudentDashboard();
+        else if (currentUser.role === "admin") renderAdminDashboard();
+        else if (currentUser.role === "security") renderSecurityPage();
+      }
+      showToast("Data synchronized with live database.", "success");
+    } catch (e) {
+      showToast("Sync completed with cached data.", "info");
+    }
+  } else {
+    showToast("Offline mode: cache is up to date.", "info");
   }
 }
 
@@ -1572,16 +2036,75 @@ document.addEventListener("DOMContentLoaded", function () {
     show("login");
   }
 
-  // Room picker auto-update on date/time change
+  // Real-time password match listener
+  var confirmInput = document.getElementById("su-confirm");
+  var pwInput = document.getElementById("su-password");
+  if (confirmInput && pwInput) {
+    function checkPwMatch() {
+      var hint = document.getElementById("pw-match-hint");
+      if (!hint) return;
+      var pw = pwInput.value;
+      var cf = confirmInput.value;
+      if (!cf) {
+        hint.style.display = "none";
+        return;
+      }
+      hint.style.display = "block";
+      if (pw === cf) {
+        hint.textContent = "✓ Passwords match";
+        hint.style.color = "var(--teal)";
+      } else {
+        hint.textContent = "✕ Passwords do not match";
+        hint.style.color = "var(--rust)";
+      }
+    }
+    confirmInput.addEventListener("input", checkPwMatch);
+    pwInput.addEventListener("input", checkPwMatch);
+  }
+
+  // Password strength meter
+  if (pwInput) {
+    pwInput.addEventListener("input", function () {
+      var pw = pwInput.value;
+      var fill = document.getElementById("pw-strength-fill");
+      var label = document.getElementById("pw-strength-label");
+      if (!fill || !label) return;
+      if (pw.length === 0) {
+        fill.style.width = "0%";
+        label.textContent = "";
+        return;
+      }
+      var score = 0;
+      if (pw.length >= 6) score++;
+      if (pw.length >= 10) score++;
+      if (/[A-Z]/.test(pw)) score++;
+      if (/[0-9]/.test(pw)) score++;
+      if (/[^A-Za-z0-9]/.test(pw)) score++;
+      var colors = ["#a13d3d", "#e07a16", "#a1752b", "#1f6f5c", "#1f6f5c"];
+      var labels = ["Too short (min 6 chars)", "Weak", "Fair", "Strong", "Very strong"];
+      var widths = ["20%", "40%", "60%", "80%", "100%"];
+      var idx = Math.min(score, 4);
+      fill.style.width = widths[idx];
+      fill.style.background = colors[idx];
+      label.textContent = labels[idx];
+      label.style.color = colors[idx];
+    });
+  }
+
+  // Room picker auto-update on date/time/attendees/purpose change
   var dateInput  = document.getElementById("f-date");
   var startInput = document.getElementById("f-start");
   var endInput   = document.getElementById("f-end");
   var attInput   = document.getElementById("f-attendees");
+  var purpInput  = document.getElementById("f-purpose");
+  var notesInput = document.getElementById("f-notes");
 
   if (dateInput)  dateInput.addEventListener("change",  updateRoomPicker);
   if (startInput) startInput.addEventListener("change", updateRoomPicker);
   if (endInput)   endInput.addEventListener("change",   updateRoomPicker);
   if (attInput)   attInput.addEventListener("input",    updateRoomPicker);
+  if (purpInput)  purpInput.addEventListener("input",   updateRoomPicker);
+  if (notesInput) notesInput.addEventListener("input",  updateRoomPicker);
 
   renderBoard();
 

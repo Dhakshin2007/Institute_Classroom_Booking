@@ -702,6 +702,73 @@ textarea { resize: vertical; min-height: 70px; }
 .room-option.disabled { opacity: 0.45; cursor: not-allowed; }
 .room-option.disabled:hover { border-color: var(--line); }
 
+/* Room Category Filters & Recommendations */
+.room-category-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 14px;
+}
+
+.category-pill {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--ink-soft);
+  transition: all 0.15s ease;
+}
+
+.category-pill:hover {
+  border-color: var(--brass);
+  color: var(--ink);
+}
+
+.category-pill.active {
+  background: var(--brass-tint);
+  border-color: var(--brass);
+  color: var(--brass-deep);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(161, 101, 47, 0.1);
+}
+
+.rec-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--teal-tint);
+  color: var(--teal);
+  margin-bottom: 4px;
+}
+
+.rec-reason {
+  font-size: 11.5px;
+  color: var(--teal);
+  font-weight: 500;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.room-option.recommended-card {
+  border-color: #8ee0c7;
+  background: linear-gradient(180deg, #ffffff 0%, #f4faf8 100%);
+  box-shadow: 0 2px 8px rgba(31, 111, 92, 0.08);
+}
+.room-option.recommended-card:hover {
+  border-color: var(--teal);
+}
+.room-option.recommended-card.selected {
+  border-color: var(--brass);
+  background: var(--brass-tint);
+}
+
 .submit-row { display: flex; justify-content: flex-end; margin-top: 22px; }
 
 /* ---------- error messages ---------- */
@@ -1090,4 +1157,120 @@ textarea { resize: vertical; min-height: 70px; }
 #qr-reader__scan_region video {
   border-radius: var(--radius-s);
 }
+
+/* ---------- loading spinner ---------- */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- premium SaaS interactive polish ---------- */
+input:focus, select:focus, textarea:focus {
+  border-color: var(--brass);
+  box-shadow: 0 0 0 3px rgba(161, 101, 47, 0.12);
+  outline: none;
+}
+
+.booking-card {
+  transition: box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, transform 0.15s ease;
+}
+.booking-card:hover {
+  border-color: var(--line);
+  box-shadow: 0 4px 16px rgba(28, 37, 65, 0.08);
+}
+
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(28, 37, 65, 0.09);
+}
+
+.btn {
+  transition: transform 0.12s, background 0.15s, box-shadow 0.15s;
+}
+.btn-primary:hover {
+  box-shadow: 0 4px 14px rgba(28, 37, 65, 0.22);
+}
+
+/* Header brand hover */
+.brand {
+  transition: opacity 0.15s;
+  user-select: none;
+}
+.brand:hover {
+  opacity: 0.88;
+}
+
+/* Modal animation */
+#reject-modal-overlay, #feedback-modal-overlay {
+  animation: fadeIn 0.15s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Star Rating Component */
+.star-rating-row .star-btn {
+  display: inline-block;
+  padding: 0 4px;
+  transition: transform 0.12s ease, color 0.15s ease;
+}
+.star-rating-row .star-btn:hover {
+  transform: scale(1.22);
+}
+.star-rating-row .star-btn.active {
+  color: #e59819;
+  text-shadow: 0 0 10px rgba(229, 152, 25, 0.4);
+}
+
+.feedback-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.fb-tag {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  transition: all 0.15s ease;
+}
+.fb-tag:hover {
+  border-color: var(--brass);
+}
+.fb-tag.selected {
+  background: var(--teal-tint);
+  border-color: var(--teal);
+  color: var(--teal);
+  font-weight: 600;
+}
+
+/* ---------- print pass ---------- */
+@media print {
+  header, nav.tabs, .user-info, #toast-container,
+  button, .btn, .btn-ghost, .submit-row, footer,
+  #home, #dash, #book, #admin, #security, #notifications, #calendar,
+  #login { display: none !important; }
+  #confirm { display: block !important; max-width: none; padding: 20px; }
+  .card.confirm { box-shadow: none; border: 1px solid #ccc; }
+  body { background: #fff; }
+}
+
 

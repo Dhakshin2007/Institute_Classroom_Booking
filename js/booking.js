@@ -100,8 +100,11 @@ function isRoomAvailable(roomCode, date, startTime, endTime) {
 
 // Return rooms annotated with availability for a given date/time slot
 function getAvailableRooms(date, startTime, endTime, attendees) {
+  var attNum = attendees ? parseInt(attendees, 10) : 0;
   return rooms.map(function (room) {
     const check = isRoomAvailable(room.code, date, startTime, endTime);
+    const diff = room.capacity - attNum;
+    const isNear = (attNum > 0 && diff < 0 && (Math.abs(diff) <= 8 || (room.capacity / attNum) >= 0.90));
     return {
       code: room.code,
       capacity: room.capacity,
@@ -110,7 +113,9 @@ function getAvailableRooms(date, startTime, endTime, attendees) {
       reason: check.reason || null,
       bufferNotice: check.bufferNotice || null,
       pendingCount: check.pendingCount || 0,
-      capacityOk: !attendees || room.capacity >= parseInt(attendees, 10)
+      capacityOk: !attNum || room.capacity >= attNum,
+      isNearCapacity: isNear,
+      seatDeficit: isNear ? Math.abs(diff) : 0
     };
   });
 }
