@@ -1,6 +1,15 @@
+// Get YYYY-MM-DD in local system time (avoids UTC midnight date-shift)
+function getLocalDateString(d) {
+  d = d || new Date();
+  var year = d.getFullYear();
+  var month = String(d.getMonth() + 1).padStart(2, "0");
+  var day = String(d.getDate()).padStart(2, "0");
+  return year + "-" + month + "-" + day;
+}
+
 // Check if date and time are in the past relative to current system time
 function isTimeInPast(dateStr, timeStr) {
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getLocalDateString();
   if (dateStr < todayStr) return true;
   if (dateStr > todayStr) return false;
   const now = new Date();
@@ -96,6 +105,7 @@ function getAvailableRooms(date, startTime, endTime, attendees) {
     return {
       code: room.code,
       capacity: room.capacity,
+      facilities: room.facilities || [],
       available: check.available,
       reason: check.reason || null,
       bufferNotice: check.bufferNotice || null,

@@ -13,7 +13,9 @@
 
 <!-- HEADER / NAVIGATION (tabs are dynamically set by app.js) -->
 <header>
-  <div class="brand">IIT Ropar<small>Classroom Booking</small></div>
+  <div class="brand">
+    IIT Ropar<small>Classroom & Venue Reservation Portal</small>
+  </div>
   <nav class="tabs" id="main-nav"></nav>
   <div class="user-info" id="user-info"></div>
 </header>
@@ -25,26 +27,162 @@
 <section id="login" class="page">
   <div class="login-wrap">
     <div class="login-card">
-      <div class="eyebrow">Smart Classroom Booking System</div>
-      <h1>Login</h1>
-
-      <label for="login-email">IIT Ropar Email</label>
-      <input id="login-email" type="email" placeholder="student@iitrpr.ac.in">
-
-      <label for="login-password">Password</label>
-      <input id="login-password" type="password" placeholder="password" value="password">
-
-      <div id="login-error" style="color:var(--rust);font-size:13px;margin-top:8px"></div>
-
-      <div class="submit-row" style="margin-top:18px">
-        <button class="btn btn-primary" onclick="handleLogin()" style="width:100%">Login</button>
+      <!-- Institutional Emblem Header -->
+      <div class="institute-emblem">
+        <div class="emblem-shield">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div class="emblem-text">
+          <div class="emblem-inst">Indian Institute of Technology Ropar</div>
+          <div class="emblem-dept">Academic Affairs & Estate Facilities Management</div>
+        </div>
+      </div>
+      
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" id="tab-btn-signin" onclick="switchAuthTab('signin')">Sign In</button>
+        <button type="button" class="auth-tab" id="tab-btn-signup" onclick="switchAuthTab('signup')">Sign Up (New User)</button>
       </div>
 
-      <div class="demo-info">
-        <strong>Demo accounts</strong> (password: <code>password</code>)
-        <code>student@iitrpr.ac.in</code>
-        <code>admin@iitrpr.ac.in</code>
-        <code>security@iitrpr.ac.in</code>
+      <!-- SIGN IN FORM -->
+      <div id="signin-form-wrap">
+        <h1 style="font-size:22px;text-align:center;margin-top:2px">Account Sign In</h1>
+        <p style="color:var(--muted);font-size:13px;text-align:center;margin:-2px 0 16px">Enter your institutional credentials to reserve or manage campus classrooms.</p>
+
+        <label for="login-email">IIT Ropar Email</label>
+        <input id="login-email" type="email" placeholder="e.g. 2024aib1009@iitrpr.ac.in" autocomplete="username">
+
+        <label for="login-password">Password</label>
+        <div class="password-wrap">
+          <input id="login-password" type="password" placeholder="Enter your password" autocomplete="current-password">
+          <button type="button" class="eye-toggle-btn" onclick="togglePasswordVisibility('login-password', this)" title="Show / Hide Password" aria-label="Show or hide password">
+            <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div id="login-error" class="auth-error"></div>
+
+        <div class="submit-row" style="margin-top:18px">
+          <button class="btn btn-primary" id="btn-login" onclick="handleLogin()" style="width:100%">Sign In</button>
+        </div>
+      </div>
+
+      <!-- SIGN UP FORM -->
+      <div id="signup-form-wrap" style="display:none">
+        <h1 style="font-size:22px;text-align:center;margin-top:2px">Create Account</h1>
+        <p style="color:var(--muted);font-size:13px;text-align:center;margin:-2px 0 16px">Register as a student, faculty member, or authorized campus staff.</p>
+
+        <label for="su-name">Full Name</label>
+        <input id="su-name" type="text" placeholder="e.g. Dhakshin K">
+
+        <div class="form-row">
+          <div>
+            <label for="su-email">Institute Email</label>
+            <input id="su-email" type="email" placeholder="2024aib1009@iitrpr.ac.in">
+          </div>
+          <div>
+            <label for="su-id">Roll No / ID</label>
+            <input id="su-id" type="text" placeholder="2024AIB1009">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label for="su-dept">Department / Program</label>
+            <select id="su-dept">
+              <option value="B.Tech, AI & Data Engineering">B.Tech, AI & Data</option>
+              <option value="B.Tech, Computer Science">B.Tech, Computer Science</option>
+              <option value="B.Tech, Electrical Engineering">B.Tech, Electrical</option>
+              <option value="B.Tech, Mechanical Engineering">B.Tech, Mechanical</option>
+              <option value="B.Tech, Chemical Engineering">B.Tech, Chemical</option>
+              <option value="B.Tech, Civil Engineering">B.Tech, Civil</option>
+              <option value="M.Tech / MS / Ph.D">M.Tech / MS / Ph.D</option>
+              <option value="Faculty / Estate Office">Faculty / Estate Office</option>
+            </select>
+          </div>
+          <div>
+            <label for="su-role">Account Role</label>
+            <select id="su-role" onchange="handleRoleSelectionChange()">
+              <option value="student">Student / Club Rep</option>
+              <option value="admin">Facilities Admin</option>
+              <option value="security">Security Guard</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Passcode verification for Admin / Security roles -->
+        <div id="su-passcode-wrap" style="display:none;background:var(--amber-soft);padding:10px 12px;border-radius:var(--radius-s);border:1px solid #fed7aa;margin:8px 0 12px">
+          <label for="su-passcode" style="color:var(--amber);font-weight:600">Staff Authorization Key</label>
+          <div class="password-wrap" style="margin-bottom:4px">
+            <input id="su-passcode" type="password" placeholder="Enter staff key (Passcode: iitrpr2026)">
+            <button type="button" class="eye-toggle-btn" onclick="togglePasswordVisibility('su-passcode', this)" title="Show / Hide Passcode" aria-label="Show or hide passcode">
+              <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+          <span style="font-size:11.5px;color:var(--ink-soft)">Staff registration key required for Admin and Guard roles (demo key: <code>iitrpr2026</code>).</span>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label for="su-password">Password</label>
+            <div class="password-wrap">
+              <input id="su-password" type="password" placeholder="At least 6 chars">
+              <button type="button" class="eye-toggle-btn" onclick="togglePasswordVisibility('su-password', this)" title="Show / Hide Password" aria-label="Show or hide password">
+                <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label for="su-confirm">Confirm Password</label>
+            <div class="password-wrap">
+              <input id="su-confirm" type="password" placeholder="Re-enter password">
+              <button type="button" class="eye-toggle-btn" onclick="togglePasswordVisibility('su-confirm', this)" title="Show / Hide Password" aria-label="Show or hide password">
+                <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="signup-error" class="auth-error"></div>
+
+        <div class="submit-row" style="margin-top:18px">
+          <button class="btn btn-primary" id="btn-signup" onclick="handleSignUp()" style="width:100%">Create Account & Log In</button>
+        </div>
+      </div>
+
+      <!-- Institutional Footer -->
+      <div class="auth-footer">
+        <div>🔒 Official IIT Ropar Portal · Authorized Use Only</div>
+        <div style="margin-top:4px;color:var(--muted)">Need help with room scheduling? Email <span style="font-family:monospace;color:var(--ink)">facilities@iitrpr.ac.in</span></div>
       </div>
     </div>
   </div>
@@ -82,17 +220,17 @@
     <div class="flow-step">
       <div class="flow-num">1</div>
       <h3>Request</h3>
-      <p>Pick a purpose, headcount and time. The system suggests rooms that actually fit.</p>
+      <p>Pick a purpose, headcount and time. The system suggests rooms that actually fit with full facility details.</p>
     </div>
     <div class="flow-step">
       <div class="flow-num">2</div>
       <h3>Approve</h3>
-      <p>Admin reviews the request against the timetable and confirms or redirects it.</p>
+      <p>Admin reviews requests against the timetable and confirms or redirects them with real-time feedback.</p>
     </div>
     <div class="flow-step">
       <div class="flow-num">3</div>
       <h3>Check in</h3>
-      <p>Security scans the booking QR at the door — the room flips to occupied automatically.</p>
+      <p>Security scans the live QR at the door using webcam or device camera — flipping the room to occupied.</p>
     </div>
   </div>
 </section>
@@ -126,6 +264,33 @@
 <section id="calendar" class="page">
   <div class="eyebrow">Semester timetable</div>
   <h1 style="font-size:28px">Weekly schedule</h1>
+
+  <div style="display:flex;gap:12px;margin:16px 0 14px;flex-wrap:wrap;align-items:center">
+    <div style="display:flex;align-items:center;gap:6px">
+      <label for="filter-tt-day" style="font-size:13px;margin:0;font-weight:600">Filter by Day:</label>
+      <select id="filter-tt-day" style="width:auto;margin:0;padding:6px 12px;font-size:13px" onchange="renderTimetable()">
+        <option value="all">All Days (Mon–Fri)</option>
+        <option value="Monday">Monday</option>
+        <option value="Tuesday">Tuesday</option>
+        <option value="Wednesday">Wednesday</option>
+        <option value="Thursday">Thursday</option>
+        <option value="Friday">Friday</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <label for="filter-tt-room" style="font-size:13px;margin:0;font-weight:600">Filter by Room:</label>
+      <select id="filter-tt-room" style="width:auto;margin:0;padding:6px 12px;font-size:13px" onchange="renderTimetable()">
+        <option value="all">All Rooms</option>
+        <option value="CS-1">CS-1 (Capacity 80)</option>
+        <option value="LT-2">LT-2 (Capacity 150)</option>
+        <option value="PCE-1">PCE-1 (Capacity 60)</option>
+        <option value="AI-3">AI-3 (Capacity 45)</option>
+        <option value="CS-SH">CS-SH (Capacity 200)</option>
+        <option value="MA-2">MA-2 (Capacity 70)</option>
+      </select>
+    </div>
+  </div>
+
   <table>
     <thead>
       <tr><th>Day</th><th>Time</th><th>Course</th><th>Room</th></tr>
@@ -144,11 +309,11 @@
   <div class="card">
     <div id="book-errors"></div>
 
-    <label for="f-purpose">Purpose</label>
-    <input id="f-purpose" placeholder="Coding Club Workshop">
+    <label for="f-purpose">Purpose of Booking</label>
+    <input id="f-purpose" placeholder="e.g. ACM Club Hands-on Workshop / Robotics Review">
 
     <label for="f-attendees">Expected attendees</label>
-    <input id="f-attendees" type="number" placeholder="70" min="1">
+    <input id="f-attendees" type="number" placeholder="e.g. 70" min="1">
 
     <div class="form-row">
       <div>
@@ -167,11 +332,20 @@
       </div>
     </div>
 
-    <label>Suggested rooms</label>
-    <div class="room-picker" id="room-picker"></div>
+    <div class="duration-chips">
+      <span style="font-size:11.5px;color:var(--muted);font-weight:600">Quick Duration:</span>
+      <button type="button" class="duration-btn" onclick="setBookingDuration(60)">+1 Hr</button>
+      <button type="button" class="duration-btn" onclick="setBookingDuration(90)">+1.5 Hrs</button>
+      <button type="button" class="duration-btn" onclick="setBookingDuration(120)">+2 Hrs</button>
+      <button type="button" class="duration-btn" onclick="setBookingDuration(180)">+3 Hrs</button>
+    </div>
 
-    <label for="f-notes">Additional requirements</label>
-    <textarea id="f-notes" placeholder="Projector, microphone, extended power backup…"></textarea>
+    <label style="margin-top:16px">Select an available room</label>
+    <div class="room-picker" id="room-picker"></div>
+    <div id="selected-room-banner" style="display:none"></div>
+
+    <label for="f-notes" style="margin-top:14px">Additional requirements</label>
+    <textarea id="f-notes" placeholder="Projector, wireless microphone, recording, extended power backup…"></textarea>
 
     <div class="submit-row">
       <button class="btn btn-primary" onclick="handleBookingSubmit()">Submit request</button>
@@ -194,42 +368,78 @@
 
   <div class="grid3" style="margin-top:22px" id="admin-stats"></div>
 
-  <div class="card" style="padding:8px 20px">
-    <div class="section-head" style="padding:10px 0">
-      <h2 style="font-size:18px">Pending requests</h2>
+  <div class="card" style="padding:12px 20px">
+    <div class="section-head" style="padding:10px 0 6px">
+      <h2 style="font-size:18px">Pending requests awaiting review</h2>
     </div>
     <div id="admin-pending"></div>
     <div id="suggest-modal" style="display:none"></div>
   </div>
 
   <div class="card">
-    <div class="section-head">
-      <h2 style="font-size:18px">All bookings</h2>
-      <button class="btn btn-ghost btn-sm" onclick="clearAllData()">Clear demo data</button>
+    <div class="section-head" style="flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:18px">All bookings database</h2>
+      <button class="btn btn-ghost btn-sm" onclick="clearAllData()">Sync / Refresh Cache</button>
     </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:12px 0 14px">
+      <div class="filter-tabs" style="margin-bottom:0">
+        <button class="filter-tab active" data-admin-filter="all" onclick="setAdminFilter('all', this)">All</button>
+        <button class="filter-tab" data-admin-filter="Pending" onclick="setAdminFilter('Pending', this)">Pending</button>
+        <button class="filter-tab" data-admin-filter="Approved" onclick="setAdminFilter('Approved', this)">Approved</button>
+        <button class="filter-tab" data-admin-filter="Occupied" onclick="setAdminFilter('Occupied', this)">Occupied</button>
+        <button class="filter-tab" data-admin-filter="Completed" onclick="setAdminFilter('Completed', this)">Completed</button>
+      </div>
+      <input id="admin-search" placeholder="Search by student, room or purpose..." style="width:280px;margin:0;padding:6px 10px;font-size:13px" oninput="renderAdminDashboard()">
+    </div>
+
     <div id="admin-all"></div>
   </div>
 </section>
 
 <!-- SECURITY PAGE -->
 <section id="security" class="page">
-  <div class="eyebrow">Campus security</div>
-  <h1 style="font-size:28px">Security Verification</h1>
+  <div class="eyebrow">Campus security desk</div>
+  <h1 style="font-size:28px">Security Verification & Room Control</h1>
 
   <div class="card scan-box">
-    <div class="scan-frame">▦</div>
-    <h2 style="font-size:19px">Scan booking QR</h2>
-    <p>Security verifies the booking at the door. Select a QR token to simulate a scan.</p>
+    <h2 style="font-size:19px;margin-top:0">Scan Booking QR at Door</h2>
+    <p style="color:var(--muted);font-size:13.5px;margin-top:-2px">Verify student authorization at the classroom entrance to unlock the room.</p>
 
-    <select id="qr-select" style="margin:14px auto;max-width:360px">
-      <option value="">-- Select a booking QR --</option>
-    </select>
-
-    <div style="margin-top:10px">
-      <button class="btn btn-primary" onclick="handleSimulateScan()">Simulate scan</button>
+    <div class="scanner-modes">
+      <button type="button" class="scanner-mode-btn active" id="btn-mode-camera" onclick="setScannerMode('camera')">📷 Live Camera Scanner</button>
+      <button type="button" class="scanner-mode-btn" id="btn-mode-manual" onclick="setScannerMode('manual')">⌨ Manual / Dropdown</button>
     </div>
 
-    <div id="scan-result" style="margin-top:22px"></div>
+    <!-- Live Camera Scanner Container -->
+    <div id="camera-scanner-view" style="margin:14px auto;max-width:380px">
+      <div id="qr-reader" style="width:100%;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" id="btn-start-camera" onclick="startCameraScanner()">Start Camera Scan</button>
+        <button class="btn btn-ghost btn-sm" id="btn-stop-camera" onclick="stopCameraScanner()" style="display:none">Stop Camera</button>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">
+          Upload QR Image
+          <input type="file" id="qr-file-input" accept="image/*" style="display:none" onchange="handleQRFileUpload(this)">
+        </label>
+      </div>
+    </div>
+
+    <!-- Manual Dropdown Container -->
+    <div id="manual-scanner-view" style="display:none;margin:14px auto;max-width:380px">
+      <label for="qr-select" style="text-align:left;display:block">Select approved booking token:</label>
+      <select id="qr-select" style="margin:6px 0 12px;width:100%">
+        <option value="">-- Select an approved booking --</option>
+      </select>
+
+      <div style="text-align:left;font-size:12px;color:var(--muted);margin-bottom:6px">Or type / paste QR token:</div>
+      <input id="qr-manual-input" placeholder="e.g. QR-IITRPR-48291" style="margin-bottom:12px">
+
+      <div>
+        <button class="btn btn-primary" onclick="handleManualCheckIn()" style="width:100%">Verify & Check In</button>
+      </div>
+    </div>
+
+    <div id="scan-result" style="margin-top:18px"></div>
   </div>
 
   <div class="card">
@@ -247,8 +457,12 @@
   <div class="card" style="padding:0" id="notif-list"></div>
 </section>
 
-<!-- SCRIPTS (load order matters: data first, then modules, then app) -->
+<!-- SCRIPTS (load order: libraries, data, modules, app) -->
+<script src="js/supabase.min.js"></script>
+<script src="js/qrcode.min.js"></script>
+<script src="js/html5-qrcode.min.js"></script>
 <script src="js/data.js"></script>
+<script src="js/supabase.js"></script>
 <script src="js/booking.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/security.js"></script>

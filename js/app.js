@@ -3,13 +3,133 @@
 // Shared State
 var currentUser  = null;
 var selectedRoom = null;
+var adminCurrentFilter = "all";
+
+// HTML Sanitization
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Pre-seed realistic IIT Ropar demo data if fresh run
+function seedInstituteData() {
+  var today = (typeof getLocalDateString === "function") ? getLocalDateString() : new Date().toISOString().split("T")[0];
+  var sampleBookings = [
+    {
+      id: "IITRPR-48291",
+      student: "student@iitrpr.ac.in",
+      studentName: "Dhakshin K",
+      studentId: "2024AIB1009",
+      room: "LT-2",
+      date: today,
+      startTime: "16:00",
+      endTime: "18:00",
+      purpose: "ACM Student Chapter Hands-on Workshop",
+      attendees: 85,
+      notes: "Projector and collar wireless mic needed.",
+      status: "Approved",
+      qrToken: "QR-IITRPR-48291",
+      checkinTime: null,
+      checkoutTime: null,
+      conditionRemark: null,
+      alternativeRoom: null,
+      adminRemark: null,
+      createdAt: new Date(Date.now() - 3600000 * 2).toISOString()
+    },
+    {
+      id: "IITRPR-48292",
+      student: "riya@iitrpr.ac.in",
+      studentName: "Riya Sharma",
+      studentId: "2023CSB1042",
+      room: "CS-1",
+      date: today,
+      startTime: "17:00",
+      endTime: "19:00",
+      purpose: "Robotics Club Weekly Review & Hardware Testing",
+      attendees: 40,
+      notes: "Extended power backup for demo bots.",
+      status: "Pending",
+      qrToken: null,
+      checkinTime: null,
+      checkoutTime: null,
+      conditionRemark: null,
+      alternativeRoom: null,
+      adminRemark: null,
+      createdAt: new Date(Date.now() - 1800000).toISOString()
+    },
+    {
+      id: "IITRPR-48290",
+      student: "student@iitrpr.ac.in",
+      studentName: "Dhakshin K",
+      studentId: "2024AIB1009",
+      room: "PCE-1",
+      date: today,
+      startTime: "08:30",
+      endTime: "09:45",
+      purpose: "Linear Algebra Peer Study Circle",
+      attendees: 20,
+      notes: "Whiteboard markers requested.",
+      status: "Completed",
+      qrToken: "QR-IITRPR-48290",
+      checkinTime: new Date(Date.now() - 3600000 * 7).toISOString(),
+      checkoutTime: new Date(Date.now() - 3600000 * 5).toISOString(),
+      conditionRemark: "No damage observed",
+      alternativeRoom: null,
+      adminRemark: null,
+      createdAt: new Date(Date.now() - 3600000 * 8).toISOString()
+    }
+  ];
+
+  var sampleNotifs = [
+    {
+      recipient: "student@iitrpr.ac.in",
+      text: "Your LT-2 booking (IITRPR-48291) has been approved. QR code is now available.",
+      type: "success",
+      time: new Date(Date.now() - 3600000 * 2).toISOString(),
+      read: false
+    },
+    {
+      recipient: "admin@iitrpr.ac.in",
+      text: "New booking request IITRPR-48292 from Riya Sharma for CS-1.",
+      type: "info",
+      time: new Date(Date.now() - 1800000).toISOString(),
+      read: false
+    },
+    {
+      recipient: "student@iitrpr.ac.in",
+      text: "Checked out of PCE-1. Room condition recorded as: No damage observed.",
+      type: "info",
+      time: new Date(Date.now() - 3600000 * 5).toISOString(),
+      read: true
+    }
+  ];
+
+  localStorage.setItem("bookings", JSON.stringify(sampleBookings));
+  localStorage.setItem("notifications", JSON.stringify(sampleNotifs));
+  localStorage.setItem("bookingCounter", JSON.stringify(48293));
+}
 
 // localStorage Helpers
 function getBookings() {
-  return JSON.parse(localStorage.getItem("bookings")) || [];
+  var b = localStorage.getItem("bookings");
+  if (!b) {
+    seedInstituteData();
+    b = localStorage.getItem("bookings");
+  }
+  return JSON.parse(b) || [];
 }
 function saveBookings(b) {
   localStorage.setItem("bookings", JSON.stringify(b));
+  if (typeof saveBookingToSupabase === "function" && Array.isArray(b)) {
+    b.forEach(function (item) {
+      saveBookingToSupabase(item);
+    });
+  }
 }
 function getBookingCounter() {
   return JSON.parse(localStorage.getItem("bookingCounter")) || 48291;
@@ -22,6 +142,17 @@ function getNotifications() {
 }
 function saveNotifications(n) {
   localStorage.setItem("notifications", JSON.stringify(n));
+}
+
+// Quick 1-click login for demo / test users
+function quickLogin(email) {
+  var user = demoUsers.find(function (u) { return u.email === email; });
+  if (!user) return;
+  var emailInput = document.getElementById("login-email");
+  var passInput = document.getElementById("login-password");
+  if (emailInput) emailInput.value = user.email;
+  if (passInput) passInput.value = user.password;
+  handleLogin();
 }
 
 // Notification Helpers
@@ -177,27 +308,252 @@ function updateNav() {
   updateNotifBadge();
 }
 
-// Login / Logout
-function handleLogin() {
+// Password Visibility Toggle
+function togglePasswordVisibility(inputId, btn) {
+  var input = document.getElementById(inputId);
+  if (!input) return;
+  var isPassword = input.type === "password";
+  input.type = isPassword ? "text" : "password";
+
+  var eyeOpen = btn.querySelector(".eye-open");
+  var eyeClosed = btn.querySelector(".eye-closed");
+  if (eyeOpen && eyeClosed) {
+    if (isPassword) {
+      eyeOpen.style.display = "none";
+      eyeClosed.style.display = "block";
+      btn.setAttribute("title", "Hide Password");
+      btn.setAttribute("aria-label", "Hide password");
+    } else {
+      eyeOpen.style.display = "block";
+      eyeClosed.style.display = "none";
+      btn.setAttribute("title", "Show Password");
+      btn.setAttribute("aria-label", "Show password");
+    }
+  }
+}
+
+// Auth Tabs & Registration State
+function switchAuthTab(tab) {
+  var btnSignIn = document.getElementById("tab-btn-signin");
+  var btnSignUp = document.getElementById("tab-btn-signup");
+  var wrapSignIn = document.getElementById("signin-form-wrap");
+  var wrapSignUp = document.getElementById("signup-form-wrap");
+  var loginErr = document.getElementById("login-error");
+  var suErr = document.getElementById("signup-error");
+
+  if (loginErr) loginErr.textContent = "";
+  if (suErr) suErr.textContent = "";
+
+  if (tab === "signin") {
+    if (btnSignIn) btnSignIn.classList.add("active");
+    if (btnSignUp) btnSignUp.classList.remove("active");
+    if (wrapSignIn) wrapSignIn.style.display = "block";
+    if (wrapSignUp) wrapSignUp.style.display = "none";
+  } else {
+    if (btnSignIn) btnSignIn.classList.remove("active");
+    if (btnSignUp) btnSignUp.classList.add("active");
+    if (wrapSignIn) wrapSignIn.style.display = "none";
+    if (wrapSignUp) wrapSignUp.style.display = "block";
+  }
+}
+
+function handleRoleSelectionChange() {
+  var roleSelect = document.getElementById("su-role");
+  var passcodeWrap = document.getElementById("su-passcode-wrap");
+  if (!roleSelect || !passcodeWrap) return;
+  var val = roleSelect.value;
+  if (val === "admin" || val === "security") {
+    passcodeWrap.style.display = "block";
+  } else {
+    passcodeWrap.style.display = "none";
+  }
+}
+
+function getRegisteredUsers() {
+  try {
+    return JSON.parse(localStorage.getItem("registeredUsers")) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveRegisteredUser(user) {
+  var list = getRegisteredUsers();
+  list.push(user);
+  localStorage.setItem("registeredUsers", JSON.stringify(list));
+}
+
+// Sign Up Handler
+async function handleSignUp() {
+  var name = document.getElementById("su-name").value.trim();
+  var email = document.getElementById("su-email").value.trim().toLowerCase();
+  var studentId = document.getElementById("su-id").value.trim().toUpperCase();
+  var dept = document.getElementById("su-dept").value;
+  var role = document.getElementById("su-role").value;
+  var passcode = document.getElementById("su-passcode") ? document.getElementById("su-passcode").value.trim() : "";
+  var password = document.getElementById("su-password").value;
+  var confirmPass = document.getElementById("su-confirm").value;
+  var errorEl = document.getElementById("signup-error");
+
+  if (errorEl) errorEl.textContent = "";
+
+  if (!name || !email || !studentId || !password || !confirmPass) {
+    if (errorEl) errorEl.textContent = "Please fill in all required fields.";
+    return;
+  }
+
+  // Basic email pattern
+  var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    if (errorEl) errorEl.textContent = "Please enter a valid email address (preferably @iitrpr.ac.in).";
+    return;
+  }
+
+  // Password checks
+  if (password.length < 6) {
+    if (errorEl) errorEl.textContent = "Password must be at least 6 characters.";
+    return;
+  }
+  if (password !== confirmPass) {
+    if (errorEl) errorEl.textContent = "Passwords do not match.";
+    return;
+  }
+
+  // Privileged role passcode check
+  if ((role === "admin" || role === "security") && passcode !== "iitrpr2026" && passcode !== "admin123") {
+    if (errorEl) errorEl.textContent = "Invalid staff passcode. Demo code for Admin/Security is: iitrpr2026";
+    return;
+  }
+
+  // Check if account already exists
+  var existingDemo = demoUsers.find(function (u) { return u.email === email; });
+  var existingReg = getRegisteredUsers().find(function (u) { return u.email === email; });
+  if (existingDemo || existingReg) {
+    if (errorEl) errorEl.textContent = "An account with " + email + " already exists. Please Sign In.";
+    return;
+  }
+
+  var btn = document.getElementById("btn-signup");
+  if (btn) btn.disabled = true;
+
+  // Supabase Auth Integration
+  if (typeof supabaseClient !== "undefined" && supabaseClient) {
+    try {
+      await supabaseClient.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          data: {
+            name: name,
+            student_id: studentId,
+            dept: dept,
+            role: role
+          }
+        }
+      });
+    } catch (authErr) {
+      console.warn("Supabase auth signup notice:", authErr);
+    }
+  }
+
+  // Save registered user
+  var newUser = {
+    email: email,
+    password: password,
+    role: role,
+    name: name,
+    id: studentId,
+    dept: dept,
+    createdAt: new Date().toISOString()
+  };
+  saveRegisteredUser(newUser);
+
+  // Automatically authenticate new user
+  currentUser = {
+    email: newUser.email,
+    role: newUser.role,
+    name: newUser.name,
+    id: newUser.id,
+    dept: newUser.dept
+  };
+
+  localStorage.setItem("currentUser", JSON.stringify(currentUser));
+  updateNav();
+
+  if (currentUser.role === "student") show("dash");
+  else if (currentUser.role === "admin") show("admin");
+  else if (currentUser.role === "security") show("security");
+
+  showToast("Account created successfully! Welcome, " + currentUser.name + ".", "success");
+  if (btn) btn.disabled = false;
+}
+
+// Sign In Handler
+async function handleLogin() {
   var email = document.getElementById("login-email").value.trim().toLowerCase();
   var password = document.getElementById("login-password").value;
   var errorEl = document.getElementById("login-error");
 
+  if (errorEl) errorEl.textContent = "";
+
   if (!email || !password) {
-    errorEl.textContent = "Please enter email and password.";
+    if (errorEl) errorEl.textContent = "Please enter both email and password.";
     return;
   }
 
+  var btn = document.getElementById("btn-login");
+  if (btn) btn.disabled = true;
+
+  // 1. Check Demo Accounts
   var user = demoUsers.find(function (u) {
     return u.email === email && u.password === password;
   });
 
+  // 2. Check Newly Registered Accounts
   if (!user) {
-    errorEl.textContent = "Invalid credentials. Use a demo account.";
+    user = getRegisteredUsers().find(function (u) {
+      return u.email === email && u.password === password;
+    });
+  }
+
+  // 3. Check Supabase Auth if online
+  if (!user && typeof supabaseClient !== "undefined" && supabaseClient) {
+    try {
+      var authRes = await supabaseClient.auth.signInWithPassword({
+        email: email,
+        password: password
+      });
+      if (authRes.data && authRes.data.user) {
+        var profRes = await supabaseClient
+          .from("profiles")
+          .select("*")
+          .eq("id", authRes.data.user.id)
+          .maybeSingle();
+
+        var prof = (profRes && profRes.data) ? profRes.data : {};
+        var meta = authRes.data.user.user_metadata || {};
+        user = {
+          email: authRes.data.user.email,
+          role: prof.role || meta.role || "student",
+          name: prof.name || meta.name || email.split("@")[0],
+          id: prof.student_id || meta.student_id || "IITRPR",
+          dept: prof.department || meta.dept || "Academic Block"
+        };
+      }
+    } catch (e) {
+      console.warn("Supabase signInWithPassword check:", e);
+    }
+  }
+
+  if (btn) btn.disabled = false;
+
+  if (!user) {
+    if (errorEl) {
+      errorEl.innerHTML = 'Invalid email or password. Don\'t have an account yet? <a href="#" onclick="switchAuthTab(\'signup\');return false;" style="color:var(--brass-deep);font-weight:600;text-decoration:underline">Create an account here</a>.';
+    }
     return;
   }
 
-  errorEl.textContent = "";
   currentUser = {
     email: user.email,
     role: user.role,
@@ -210,17 +566,20 @@ function handleLogin() {
   updateNav();
 
   // Navigate to role-appropriate page
-  if (currentUser.role === "student")  show("dash");
-  else if (currentUser.role === "admin")    show("admin");
+  if (currentUser.role === "student") show("dash");
+  else if (currentUser.role === "admin") show("admin");
   else if (currentUser.role === "security") show("security");
 
-  showToast("Welcome, " + currentUser.name + "!", "success");
+  showToast("Welcome back, " + currentUser.name + "!", "success");
 }
 
 function logout() {
   currentUser = null;
   selectedRoom = null;
   localStorage.removeItem("currentUser");
+  if (typeof supabaseClient !== "undefined" && supabaseClient && supabaseClient.auth) {
+    try { supabaseClient.auth.signOut(); } catch (e) {}
+  }
   updateNav();
   show("login");
   showToast("Logged out successfully.", "info");
@@ -429,25 +788,56 @@ function showQR(bookingId) {
   show("confirm");
 }
 
-// Timetable Calendar
+// Timetable Calendar with Day and Room Filters
 function renderTimetable() {
   var tbody = document.getElementById("timetable-body");
   if (!tbody) return;
 
+  var dayFilter = document.getElementById("filter-tt-day") ? document.getElementById("filter-tt-day").value : "all";
+  var roomFilter = document.getElementById("filter-tt-room") ? document.getElementById("filter-tt-room").value : "all";
+
   var days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  if (dayFilter !== "all") {
+    days = [dayFilter];
+  }
+
   var todayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][new Date().getDay()];
 
   var rows = [];
   days.forEach(function (day) {
-    var entries = timetable.filter(function (e) { return e.days.indexOf(day) !== -1; })
-      .sort(function (a, b) { return a.start.localeCompare(b.start); });
+    var entries = timetable.filter(function (e) {
+      var matchDay = e.days.indexOf(day) !== -1;
+      var matchRoom = roomFilter === "all" || e.room === roomFilter;
+      return matchDay && matchRoom;
+    }).sort(function (a, b) { return a.start.localeCompare(b.start); });
+
     entries.forEach(function (e) {
       var isToday = day === todayName;
-      rows.push('<tr' + (isToday ? ' class="today"' : '') + '><td>' + day + '</td><td>' + formatTime(e.start) + '–' + formatTime(e.end) + '</td><td>' + e.course + ' · ' + e.title + '</td><td>' + e.room + '</td></tr>');
+      rows.push('<tr' + (isToday ? ' class="today"' : '') + '><td><strong>' + escapeHtml(day) + '</strong></td><td>' + formatTime(e.start) + '–' + formatTime(e.end) + '</td><td>' + escapeHtml(e.course) + ' · ' + escapeHtml(e.title) + '</td><td><span class="badge badge-amber">' + escapeHtml(e.room) + '</span></td></tr>');
     });
   });
 
-  tbody.innerHTML = rows.join("");
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--muted)">No classes scheduled for the selected filter.</td></tr>';
+  } else {
+    tbody.innerHTML = rows.join("");
+  }
+}
+
+// Quick duration calculator (+1 hr, +1.5 hrs, etc.)
+function setBookingDuration(minutes) {
+  var startInput = document.getElementById("f-start");
+  var endInput = document.getElementById("f-end");
+  var startTime = startInput.value || "15:00";
+  startInput.value = startTime;
+
+  var parts = startTime.split(":");
+  var totalMin = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10) + minutes;
+  if (totalMin > 23 * 60 + 59) totalMin = 23 * 60 + 59;
+  var endH = String(Math.floor(totalMin / 60)).padStart(2, "0");
+  var endM = String(totalMin % 60).padStart(2, "0");
+  endInput.value = endH + ":" + endM;
+  updateRoomPicker();
 }
 
 // Booking Form
@@ -456,10 +846,15 @@ function renderBookingForm() {
   var errorEl = document.getElementById("book-errors");
   if (errorEl) errorEl.innerHTML = "";
 
-  // Set min date to today
+  var bannerEl = document.getElementById("selected-room-banner");
+  if (bannerEl) bannerEl.style.display = "none";
+
+  // Set min date to today using local timezone
   var dateInput = document.getElementById("f-date");
   if (dateInput) {
-    dateInput.min = new Date().toISOString().split("T")[0];
+    var todayLocal = (typeof getLocalDateString === "function") ? getLocalDateString() : new Date().toISOString().split("T")[0];
+    dateInput.min = todayLocal;
+    if (!dateInput.value) dateInput.value = todayLocal;
   }
 
   updateRoomPicker();
@@ -471,53 +866,72 @@ function updateRoomPicker() {
   var endTime = document.getElementById("f-end").value;
   var attendees = document.getElementById("f-attendees").value;
   var el = document.getElementById("room-picker");
+  var bannerEl = document.getElementById("selected-room-banner");
 
   if (!date || !startTime || !endTime) {
     el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:20px"><div class="icon">📅</div>Select date, start time, and end time to see available rooms.</div>';
     selectedRoom = null;
+    if (bannerEl) bannerEl.style.display = "none";
     return;
   }
 
   if (startTime >= endTime) {
     el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:20px"><div class="icon">⚠️</div>End time must be after start time.</div>';
     selectedRoom = null;
+    if (bannerEl) bannerEl.style.display = "none";
     return;
   }
 
   if (isTimeInPast(date, startTime)) {
     el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:20px"><div class="icon">⏰</div>Start time (' + formatTime(startTime) + ') is in the past for selected date. Please pick an upcoming time slot.</div>';
     selectedRoom = null;
+    if (bannerEl) bannerEl.style.display = "none";
     return;
   }
 
   var roomList = getAvailableRooms(date, startTime, endTime, attendees);
-  selectedRoom = null;
+
+  // If selected room is no longer available in this slot, unselect it
+  if (selectedRoom) {
+    var stillAvail = roomList.find(function(r) { return r.code === selectedRoom && r.available; });
+    if (!stillAvail) {
+      selectedRoom = null;
+      if (bannerEl) bannerEl.style.display = "none";
+    }
+  }
 
   el.innerHTML = roomList.map(function (r) {
     var disabled = !r.available;
     var capWarn = r.available && !r.capacityOk;
+    var isSelected = (selectedRoom === r.code);
     var statusLine = "";
 
     if (disabled) {
       statusLine = r.reason || "Occupied";
     } else if (capWarn) {
-      statusLine = "Capacity " + r.capacity + " · ⚠ Below expected attendees";
+      statusLine = "Capacity " + r.capacity + " · ⚠ Below expected headcount (" + attendees + ")";
     } else {
       statusLine = "Capacity " + r.capacity + " · Available";
     }
 
     var extraBadges = "";
     if (r.available && r.bufferNotice) {
-      extraBadges += '<div style="font-size:11.5px;color:var(--amber);margin-top:3px">⚠️ ' + r.bufferNotice + '</div>';
+      extraBadges += '<div style="font-size:11.5px;color:var(--amber);margin-top:3px">⚠️ ' + escapeHtml(r.bufferNotice) + '</div>';
     }
     if (r.available && r.pendingCount > 0) {
       extraBadges += '<div style="font-size:11.5px;color:var(--muted);margin-top:2px">⏳ ' + r.pendingCount + ' request(s) awaiting admin review</div>';
     }
 
-    return '<button type="button" class="room-option ' + (disabled ? 'disabled' : '') + '" ' +
-      (disabled ? 'disabled' : '') + ' data-room="' + r.code + '" onclick="selectRoom(\'' + r.code + '\')">' +
-      '<div class="rn">' + r.code + '</div>' +
-      '<div class="rd">' + statusLine + '</div>' +
+    var facBadges = "";
+    if (r.facilities && r.facilities.length > 0) {
+      facBadges = '<div class="room-fac">' + r.facilities.map(function(f){ return '<span class="room-fac-tag">' + escapeHtml(f) + '</span>'; }).join('') + '</div>';
+    }
+
+    return '<button type="button" class="room-option ' + (disabled ? 'disabled' : '') + ' ' + (isSelected ? 'selected' : '') + '" ' +
+      (disabled ? 'disabled' : '') + ' data-room="' + escapeHtml(r.code) + '" onclick="selectRoom(\'' + escapeHtml(r.code) + '\')">' +
+      '<div class="rn">' + escapeHtml(r.code) + (isSelected ? ' <span style="font-size:12px;color:var(--teal)">✓ Selected</span>' : '') + '</div>' +
+      '<div class="rd">' + escapeHtml(statusLine) + '</div>' +
+      facBadges +
       extraBadges +
       '</button>';
   }).join("");
@@ -528,6 +942,24 @@ function selectRoom(code) {
   document.querySelectorAll(".room-option").forEach(function (b) { b.classList.remove("selected"); });
   var btn = document.querySelector('.room-option[data-room="' + code + '"]');
   if (btn) btn.classList.add("selected");
+
+  var roomData = rooms.find(function(r) { return r.code === code; });
+  var bannerEl = document.getElementById("selected-room-banner");
+  if (bannerEl && roomData) {
+    bannerEl.style.display = "flex";
+    bannerEl.innerHTML = '<span>✓ <strong>Room ' + escapeHtml(roomData.code) + ' selected</strong> (Capacity ' + roomData.capacity + ' · ' + (roomData.facilities ? roomData.facilities.join(', ') : '') + ')</span><button type="button" class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11.5px" onclick="clearSelectedRoom()">Change</button>';
+  }
+
+  // Clear any existing error messages
+  var errorEl = document.getElementById("book-errors");
+  if (errorEl) errorEl.innerHTML = "";
+}
+
+function clearSelectedRoom() {
+  selectedRoom = null;
+  document.querySelectorAll(".room-option").forEach(function (b) { b.classList.remove("selected"); });
+  var bannerEl = document.getElementById("selected-room-banner");
+  if (bannerEl) bannerEl.style.display = "none";
 }
 
 function handleBookingSubmit() {
@@ -543,13 +975,14 @@ function handleBookingSubmit() {
 
   if (!result.success) {
     errorEl.innerHTML = '<div class="error-box"><strong>Please fix the following:</strong><ul>' +
-      result.errors.map(function (e) { return "<li>" + e + "</li>"; }).join("") +
+      result.errors.map(function (e) { return "<li>" + escapeHtml(e) + "</li>"; }).join("") +
       '</ul></div>';
+    errorEl.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
 
   errorEl.innerHTML = "";
-  showToast("Booking request submitted!", "success");
+  showToast("Booking request submitted for review!", "success");
 
   // Show confirmation
   renderConfirmation(result.booking);
@@ -558,14 +991,13 @@ function handleBookingSubmit() {
   // Clear form
   document.getElementById("f-purpose").value = "";
   document.getElementById("f-attendees").value = "";
-  document.getElementById("f-date").value = "";
-  document.getElementById("f-start").value = "";
-  document.getElementById("f-end").value = "";
   document.getElementById("f-notes").value = "";
   selectedRoom = null;
+  var bannerEl = document.getElementById("selected-room-banner");
+  if (bannerEl) bannerEl.style.display = "none";
 }
 
-// Generate a procedural crisp QR Code SVG based on token string
+// Generate a procedural crisp QR Code SVG based on token string (fallback)
 function generateQRCodeSVG(text) {
   var size = 21;
   var matrix = [];
@@ -638,24 +1070,62 @@ function renderConfirmation(booking) {
 
   var qrHtml = "";
   if (booking.qrToken) {
-    qrHtml = generateQRCodeSVG(booking.qrToken) +
-      '<p class="confirm-detail" style="font-size:12px;color:var(--muted)">Verified QR Token: <code>' + booking.qrToken + '</code></p>';
+    qrHtml = '<div id="booking-qr-render" style="display:flex;justify-content:center;margin:18px auto 8px;min-height:170px"></div>' +
+      '<p class="confirm-detail" style="font-size:12px;color:var(--muted)">Verified QR Token: <code>' + escapeHtml(booking.qrToken) + '</code></p>' +
+      '<div style="margin:10px auto;display:flex;justify-content:center;gap:8px">' +
+      '<button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print / Save Pass</button>' +
+      '</div>';
   } else {
     qrHtml = '<p class="confirm-detail" style="color:var(--amber);margin:16px 0">QR code will be available after admin approval.</p>';
   }
 
-  var emailLine = '<p class="confirm-detail" style="font-size:13px;color:var(--muted);margin-top:12px">Email notification queued for ' + booking.student + '</p>';
+  var emailLine = '<p class="confirm-detail" style="font-size:13px;color:var(--muted);margin-top:12px">Email notification queued for ' + escapeHtml(booking.student) + '</p>';
 
   el.innerHTML =
     '<div class="' + ringClass + '">' + ringIcon + '</div>' +
     '<h1 style="font-size:24px">' + title + '</h1>' +
     getStatusBadge(booking.status) +
-    '<h2 style="margin-top:16px;font-size:26px">' + booking.room + '</h2>' +
+    '<h2 style="margin-top:16px;font-size:26px">' + escapeHtml(booking.room) + '</h2>' +
     '<p class="confirm-detail">' + formatDate(booking.date) + ' · ' + formatTime(booking.startTime) + ' – ' + formatTime(booking.endTime) + '</p>' +
-    '<p class="confirm-detail">' + booking.purpose + '</p>' +
+    '<p class="confirm-detail">' + escapeHtml(booking.purpose) + '</p>' +
     qrHtml +
-    '<div class="booking-id">' + booking.id + '</div>' +
+    '<div class="booking-id">' + escapeHtml(booking.id) + '</div>' +
     emailLine;
+
+  // Render real QR code using qrcode.min.js
+  if (booking.qrToken) {
+    var qrContainer = document.getElementById("booking-qr-render");
+    if (qrContainer) {
+      qrContainer.innerHTML = "";
+      if (typeof QRCode !== "undefined") {
+        try {
+          new QRCode(qrContainer, {
+            text: booking.qrToken,
+            width: 170,
+            height: 170,
+            colorDark: "#1c2541",
+            colorLight: "#ffffff",
+            correctLevel: (typeof QRCode.CorrectLevel !== "undefined") ? QRCode.CorrectLevel.M : 0
+          });
+        } catch (e) {
+          qrContainer.innerHTML = generateQRCodeSVG(booking.qrToken);
+        }
+      } else {
+        qrContainer.innerHTML = generateQRCodeSVG(booking.qrToken);
+      }
+    }
+  }
+}
+
+// Admin Dashboard Filter State
+var adminCurrentFilter = "all";
+
+function setAdminFilter(filter, btn) {
+  adminCurrentFilter = filter;
+  var tabs = document.querySelectorAll("#admin .filter-tab");
+  tabs.forEach(function (t) { t.classList.remove("active"); });
+  if (btn) btn.classList.add("active");
+  renderAdminDashboard();
 }
 
 // Admin Dashboard
@@ -669,13 +1139,15 @@ function renderAdminDashboard() {
   // Stats
   var statsEl = document.getElementById("admin-stats");
   if (statsEl) {
+    var todayStr = (typeof getLocalDateString === "function") ? getLocalDateString() : new Date().toISOString().split("T")[0];
     var approvedToday = bookings.filter(function (b) {
-      return b.status === "Approved" && b.createdAt && b.createdAt.startsWith(new Date().toISOString().split("T")[0]);
+      return b.status === "Approved" && b.createdAt && b.createdAt.startsWith(todayStr);
     }).length;
+    var occupiedCount = bookings.filter(function (b) { return b.status === "Occupied"; }).length;
 
     statsEl.innerHTML =
       '<div class="card stat-card"><div class="stat-label">Pending requests</div><div class="stat-num">' + pending.length + '</div><div class="stat-sub">Awaiting review</div></div>' +
-      '<div class="card stat-card"><div class="stat-label">Total bookings</div><div class="stat-num">' + all.length + '</div><div class="stat-sub">All time</div></div>' +
+      '<div class="card stat-card"><div class="stat-label">Currently Occupied</div><div class="stat-num" style="color:var(--rust)">' + occupiedCount + '</div><div class="stat-sub">Live in classrooms</div></div>' +
       '<div class="card stat-card"><div class="stat-label">Approved today</div><div class="stat-num">' + approvedToday + '</div><div class="stat-sub">Today\'s approvals</div></div>';
   }
 
@@ -690,32 +1162,48 @@ function renderAdminDashboard() {
         '<div>Student</div><div>Room</div><div>Time</div><div>Purpose</div><div></div></div>' +
         pending.map(function (b) {
           return '<div class="req-row">' +
-            '<div><div class="req-name">' + b.studentName + '</div><div class="req-id">' + b.studentId + ' · ' + b.id + '</div></div>' +
-            '<div><span class="badge badge-amber">' + b.room + '</span></div>' +
+            '<div><div class="req-name">' + escapeHtml(b.studentName) + '</div><div class="req-id">' + escapeHtml(b.studentId) + ' · ' + escapeHtml(b.id) + '</div></div>' +
+            '<div><span class="badge badge-amber">' + escapeHtml(b.room) + '</span></div>' +
             '<div>' + formatDate(b.date) + '<br>' + formatTime(b.startTime) + '–' + formatTime(b.endTime) + '</div>' +
-            '<div>' + b.purpose + (b.attendees ? ' (' + b.attendees + ' ppl)' : '') + '</div>' +
+            '<div>' + escapeHtml(b.purpose) + (b.attendees ? ' (' + escapeHtml(String(b.attendees)) + ' ppl)' : '') + '</div>' +
             '<div class="req-actions">' +
-            '<button class="btn btn-teal btn-sm" onclick="handleApprove(\'' + b.id + '\')">Approve</button>' +
-            '<button class="btn btn-rust btn-sm" onclick="handleReject(\'' + b.id + '\')">Reject</button>' +
-            '<button class="btn btn-ghost btn-sm" onclick="handleShowSuggest(\'' + b.id + '\')">Suggest Alt</button>' +
+            '<button class="btn btn-teal btn-sm" onclick="handleApprove(\'' + escapeHtml(b.id) + '\')">Approve</button>' +
+            '<button class="btn btn-rust btn-sm" onclick="handleReject(\'' + escapeHtml(b.id) + '\')">Reject</button>' +
+            '<button class="btn btn-ghost btn-sm" onclick="handleShowSuggest(\'' + escapeHtml(b.id) + '\')">Suggest Alt</button>' +
             '</div></div>';
         }).join("");
     }
   }
 
-  // All bookings list
+  // All bookings list with search & filter
   var allEl = document.getElementById("admin-all");
   if (allEl) {
-    if (all.length === 0) {
-      allEl.innerHTML = '<div class="empty-state"><div class="icon">📋</div>No bookings yet.</div>';
+    var searchInput = document.getElementById("admin-search");
+    var query = searchInput ? searchInput.value.toLowerCase().trim() : "";
+
+    var filtered = all.filter(function (b) {
+      if (adminCurrentFilter !== "all" && b.status !== adminCurrentFilter) return false;
+      if (query) {
+        var match = (b.studentName && b.studentName.toLowerCase().indexOf(query) !== -1) ||
+                    (b.student && b.student.toLowerCase().indexOf(query) !== -1) ||
+                    (b.room && b.room.toLowerCase().indexOf(query) !== -1) ||
+                    (b.purpose && b.purpose.toLowerCase().indexOf(query) !== -1) ||
+                    (b.id && b.id.toLowerCase().indexOf(query) !== -1);
+        if (!match) return false;
+      }
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      allEl.innerHTML = '<div class="empty-state"><div class="icon">📋</div>No bookings match criteria.</div>';
     } else {
-      allEl.innerHTML = all.slice().reverse().map(function (b) {
+      allEl.innerHTML = filtered.slice().reverse().map(function (b) {
         return '<div class="booking-card">' +
           '<div style="display:flex;justify-content:space-between;align-items:start">' +
-          '<div><h3>' + b.purpose + '</h3>' +
-          '<div class="meta"><span>' + b.studentName + '</span><span>🏫 ' + b.room + '</span><span>📅 ' + formatDate(b.date) + '</span><span>🕐 ' + formatTime(b.startTime) + '–' + formatTime(b.endTime) + '</span></div></div>' +
+          '<div><h3>' + escapeHtml(b.purpose) + '</h3>' +
+          '<div class="meta"><span>' + escapeHtml(b.studentName) + '</span><span>🏫 ' + escapeHtml(b.room) + '</span><span>📅 ' + formatDate(b.date) + '</span><span>🕐 ' + formatTime(b.startTime) + '–' + formatTime(b.endTime) + '</span></div></div>' +
           '<div>' + getStatusBadge(b.status) + '</div></div>' +
-          (b.conditionRemark ? '<p style="font-size:12px;color:var(--muted);margin:6px 0 0">Room condition: ' + b.conditionRemark + '</p>' : '') +
+          (b.conditionRemark ? '<p style="font-size:12px;color:var(--muted);margin:6px 0 0">Room condition: ' + escapeHtml(b.conditionRemark) + '</p>' : '') +
           '</div>';
       }).join("");
     }
@@ -814,12 +1302,159 @@ function handleDeclineAlt(bookingId) {
   }
 }
 
+// Security Camera & Scanning State
+var html5QrCodeScanner = null;
+var scannerActive = false;
+
+function setScannerMode(mode) {
+  var btnCam = document.getElementById("btn-mode-camera");
+  var btnManual = document.getElementById("btn-mode-manual");
+  var camView = document.getElementById("camera-scanner-view");
+  var manView = document.getElementById("manual-scanner-view");
+
+  if (mode === "camera") {
+    if (btnCam) btnCam.classList.add("active");
+    if (btnManual) btnManual.classList.remove("active");
+    if (camView) camView.style.display = "block";
+    if (manView) manView.style.display = "none";
+  } else {
+    if (btnCam) btnCam.classList.remove("active");
+    if (btnManual) btnManual.classList.add("active");
+    if (camView) camView.style.display = "none";
+    if (manView) manView.style.display = "block";
+    stopCameraScanner();
+  }
+}
+
+function startCameraScanner() {
+  if (typeof Html5Qrcode === "undefined") {
+    showToast("Camera QR scanning library not loaded.", "error");
+    return;
+  }
+  if (scannerActive) return;
+
+  var qrReaderEl = document.getElementById("qr-reader");
+  if (!qrReaderEl) return;
+
+  if (!html5QrCodeScanner) {
+    html5QrCodeScanner = new Html5Qrcode("qr-reader");
+  }
+
+  var config = { fps: 10, qrbox: { width: 220, height: 220 } };
+  html5QrCodeScanner.start(
+    { facingMode: "environment" },
+    config,
+    function (decodedText) {
+      handleScannedToken(decodedText);
+      showToast("QR code detected: " + decodedText, "info");
+    },
+    function (err) {
+      // Ignored continuous frame scan error
+    }
+  ).then(function () {
+    scannerActive = true;
+    var startBtn = document.getElementById("btn-start-camera");
+    var stopBtn = document.getElementById("btn-stop-camera");
+    if (startBtn) startBtn.style.display = "none";
+    if (stopBtn) stopBtn.style.display = "inline-block";
+    showToast("Camera active. Point at student booking QR.", "info");
+  }).catch(function (err) {
+    console.warn("Camera start failed:", err);
+    showToast("Camera access error: " + (err.name || err.message || err), "error");
+  });
+}
+
+function stopCameraScanner() {
+  if (html5QrCodeScanner && scannerActive) {
+    html5QrCodeScanner.stop().then(function () {
+      scannerActive = false;
+      var startBtn = document.getElementById("btn-start-camera");
+      var stopBtn = document.getElementById("btn-stop-camera");
+      if (startBtn) startBtn.style.display = "inline-block";
+      if (stopBtn) stopBtn.style.display = "none";
+    }).catch(function (err) {
+      scannerActive = false;
+      var startBtn = document.getElementById("btn-start-camera");
+      var stopBtn = document.getElementById("btn-stop-camera");
+      if (startBtn) startBtn.style.display = "inline-block";
+      if (stopBtn) stopBtn.style.display = "none";
+    });
+  }
+}
+
+function handleQRFileUpload(input) {
+  if (!input || !input.files || input.files.length === 0) return;
+  var file = input.files[0];
+  if (typeof Html5Qrcode === "undefined") {
+    showToast("QR scanner not available.", "error");
+    return;
+  }
+  var fileScanner = new Html5Qrcode("qr-reader");
+  fileScanner.scanFile(file, true)
+    .then(function (decodedText) {
+      handleScannedToken(decodedText);
+      input.value = "";
+    })
+    .catch(function (err) {
+      showToast("Could not detect a valid QR code in the image.", "error");
+      input.value = "";
+    });
+}
+
+function handleScannedToken(token, bypassDateCheck) {
+  if (!token) return;
+  var resultEl = document.getElementById("scan-result");
+  var result = checkInBooking(token, bypassDateCheck);
+
+  if (result.success) {
+    var b = result.booking;
+    if (resultEl) {
+      resultEl.innerHTML =
+        '<div class="card" style="background:var(--teal-soft);border:1px solid var(--teal);padding:16px;text-align:center">' +
+        '<span class="badge badge-teal" style="font-size:12px">Access Granted · Verified</span>' +
+        '<h2 style="margin:10px 0 4px;font-size:24px;color:var(--teal)">' + escapeHtml(b.room) + ' UNLOCKED</h2>' +
+        '<p style="font-weight:600;margin:4px 0">' + escapeHtml(b.purpose) + '</p>' +
+        '<p class="confirm-detail" style="font-size:13px;color:var(--ink-soft)">Booked by: <strong>' + escapeHtml(b.studentName) + '</strong> (' + escapeHtml(b.studentId) + ')</p>' +
+        '<p class="confirm-detail" style="font-size:12px;color:var(--muted)">Checked in at ' + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + '</p>' +
+        '</div>';
+    }
+    showToast("Check-in successful — " + b.room + " is now Occupied.", "success");
+    renderSecurityPage();
+  } else if (result.dateMismatch) {
+    var b = result.booking;
+    if (resultEl) {
+      resultEl.innerHTML =
+        '<div class="error-box" style="text-align:left">' +
+        '<strong>⚠️ Date Mismatch Warning</strong><br>' +
+        escapeHtml(result.error) + '<br>' +
+        '<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+        '<button class="btn btn-rust btn-sm" onclick="handleScannedToken(\'' + escapeHtml(b.qrToken) + '\', true)">Security Override: Check In Anyway</button>' +
+        '<span style="font-size:12px;color:var(--muted)">Requires guard authorization</span>' +
+        '</div></div>';
+    }
+    showToast("Date mismatch warning for booking " + b.id, "error");
+  } else {
+    if (resultEl) {
+      resultEl.innerHTML = '<div class="error-box">' + escapeHtml(result.error) + '</div>';
+    }
+  }
+}
+
+function handleManualCheckIn() {
+  var manualInput = document.getElementById("qr-manual-input");
+  var selectEl = document.getElementById("qr-select");
+  var token = (manualInput && manualInput.value.trim()) ? manualInput.value.trim() : (selectEl ? selectEl.value : "");
+  if (!token) {
+    var resultEl = document.getElementById("scan-result");
+    if (resultEl) resultEl.innerHTML = '<div class="error-box">Please select an approved booking or enter a QR token.</div>';
+    return;
+  }
+  handleScannedToken(token);
+}
+
 // Security Page
 function renderSecurityPage() {
   if (!currentUser || currentUser.role !== "security") return;
-
-  var resultEl = document.getElementById("scan-result");
-  if (resultEl) resultEl.innerHTML = "";
 
   // Show currently occupied rooms
   var occupiedEl = document.getElementById("occupied-list");
@@ -830,19 +1465,19 @@ function renderSecurityPage() {
     } else {
       occupiedEl.innerHTML = occupied.map(function (b) {
         return '<div class="occupied-card">' +
-          '<h3>' + b.room + ' — ' + b.purpose + '</h3>' +
-          '<div class="meta"><span>👤 ' + b.studentName + '</span><span>🕐 ' + formatTime(b.startTime) + '–' + formatTime(b.endTime) + '</span>' +
+          '<h3>' + escapeHtml(b.room) + ' — ' + escapeHtml(b.purpose) + '</h3>' +
+          '<div class="meta"><span>👤 ' + escapeHtml(b.studentName) + '</span><span>🕐 ' + formatTime(b.startTime) + '–' + formatTime(b.endTime) + '</span>' +
           (b.checkinTime ? '<span>✅ Checked in ' + timeAgo(b.checkinTime) + '</span>' : '') + '</div>' +
           '<div style="margin-top:8px">' +
-          '<p style="font-size:13px;font-weight:600;color:var(--ink-soft);margin:0 0 6px">Room condition:</p>' +
-          '<div class="condition-picker" id="cond-' + b.id + '">' +
-          '<button class="condition-btn selected" onclick="selectCondition(\'' + b.id + '\', this)">No damage observed</button>' +
-          '<button class="condition-btn" onclick="selectCondition(\'' + b.id + '\', this)">Projector issue</button>' +
-          '<button class="condition-btn" onclick="selectCondition(\'' + b.id + '\', this)">Furniture issue</button>' +
-          '<button class="condition-btn" onclick="selectCondition(\'' + b.id + '\', this)">Cleaning required</button>' +
-          '<button class="condition-btn" onclick="selectCondition(\'' + b.id + '\', this)">Other</button>' +
+          '<p style="font-size:13px;font-weight:600;color:var(--ink-soft);margin:0 0 6px">Room condition on checkout:</p>' +
+          '<div class="condition-picker" id="cond-' + escapeHtml(b.id) + '">' +
+          '<button class="condition-btn selected" onclick="selectCondition(\'' + escapeHtml(b.id) + '\', this)">No damage observed</button>' +
+          '<button class="condition-btn" onclick="selectCondition(\'' + escapeHtml(b.id) + '\', this)">Projector issue</button>' +
+          '<button class="condition-btn" onclick="selectCondition(\'' + escapeHtml(b.id) + '\', this)">Furniture issue</button>' +
+          '<button class="condition-btn" onclick="selectCondition(\'' + escapeHtml(b.id) + '\', this)">Cleaning required</button>' +
+          '<button class="condition-btn" onclick="selectCondition(\'' + escapeHtml(b.id) + '\', this)">Other</button>' +
           '</div>' +
-          '<button class="btn btn-primary btn-sm" onclick="handleCheckOut(\'' + b.id + '\')">Check Out</button>' +
+          '<button class="btn btn-primary btn-sm" onclick="handleCheckOut(\'' + escapeHtml(b.id) + '\')">Complete & Free Room</button>' +
           '</div></div>';
       }).join("");
     }
@@ -852,9 +1487,9 @@ function renderSecurityPage() {
   var selectEl = document.getElementById("qr-select");
   if (selectEl) {
     var approved = getBookings().filter(function (b) { return b.status === "Approved" && b.qrToken; });
-    selectEl.innerHTML = '<option value="">-- Select a booking QR --</option>' +
+    selectEl.innerHTML = '<option value="">-- Select an approved booking --</option>' +
       approved.map(function (b) {
-        return '<option value="' + b.qrToken + '">' + b.qrToken + ' (' + b.room + ' · ' + b.studentName + ')</option>';
+        return '<option value="' + escapeHtml(b.qrToken) + '">' + escapeHtml(b.qrToken) + ' (' + escapeHtml(b.room) + ' · ' + escapeHtml(b.studentName) + ')</option>';
       }).join("");
   }
 }
@@ -864,33 +1499,6 @@ function selectCondition(bookingId, btn) {
   if (!container) return;
   container.querySelectorAll(".condition-btn").forEach(function (b) { b.classList.remove("selected"); });
   btn.classList.add("selected");
-}
-
-function handleSimulateScan() {
-  var selectEl = document.getElementById("qr-select");
-  var qrToken = selectEl ? selectEl.value : "";
-  var resultEl = document.getElementById("scan-result");
-
-  if (!qrToken) {
-    resultEl.innerHTML = '<div class="error-box">Please select a booking QR token to scan.</div>';
-    return;
-  }
-
-  var result = checkInBooking(qrToken);
-
-  if (result.success) {
-    var b = result.booking;
-    resultEl.innerHTML =
-      '<span class="badge badge-teal">Valid booking</span>' +
-      '<h2>' + b.room + ' · Occupied</h2>' +
-      '<p class="confirm-detail">' + b.purpose + ' — ' + b.studentName + '</p>' +
-      '<p class="confirm-detail">Checked in at ' + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + '</p>' +
-      '<p style="font-size:14px;font-weight:600;color:var(--rust);margin-top:10px">ROOM STATUS: OCCUPIED</p>';
-    showToast("Check-in successful — " + b.room + " is now occupied.", "success");
-    renderSecurityPage();
-  } else {
-    resultEl.innerHTML = '<div class="error-box">' + result.error + '</div>';
-  }
 }
 
 function handleCheckOut(bookingId) {
@@ -903,7 +1511,7 @@ function handleCheckOut(bookingId) {
 
   var result = checkOutBooking(bookingId, remark);
   if (result.success) {
-    showToast("Checked out — " + result.booking.room + " is now available. Condition: " + remark, "success");
+    showToast("Checked out — " + result.booking.room + " is now free. Condition: " + remark, "success");
     renderSecurityPage();
   } else {
     showToast(result.error, "error");
@@ -928,24 +1536,25 @@ function renderNotifications() {
     var iconMap = { success: "✓", error: "✕", info: "ℹ" };
     return '<div class="notif-item ' + (n.read ? '' : 'unread') + '">' +
       '<div class="notif-icon ' + n.type + '">' + (iconMap[n.type] || "ℹ") + '</div>' +
-      '<div class="notif-body"><p>' + n.text + '</p><div class="notif-time">' + timeAgo(n.time) + '</div></div>' +
+      '<div class="notif-body"><p>' + escapeHtml(n.text) + '</p><div class="notif-time">' + timeAgo(n.time) + '</div></div>' +
       '</div>';
   }).join("");
 }
 
-// Clear demo data
+// Reset data to initial institute demo state
 function clearAllData() {
-  if (confirm("Clear all bookings, notifications, and demo data?")) {
+  if (confirm("Reset portal to initial institute demo data?")) {
     localStorage.removeItem("bookings");
     localStorage.removeItem("notifications");
     localStorage.removeItem("bookingCounter");
-    showToast("All demo data cleared.", "info");
-    // Re-render current page
+    seedInstituteData();
+    showToast("Portal reset to initial institute demo state.", "info");
     if (currentUser) {
       if (currentUser.role === "student") renderStudentDashboard();
-      if (currentUser.role === "admin") renderAdminDashboard();
-      if (currentUser.role === "security") renderSecurityPage();
+      else if (currentUser.role === "admin") renderAdminDashboard();
+      else if (currentUser.role === "security") renderSecurityPage();
     }
+    renderBoard();
   }
 }
 
@@ -975,6 +1584,11 @@ document.addEventListener("DOMContentLoaded", function () {
   if (attInput)   attInput.addEventListener("input",    updateRoomPicker);
 
   renderBoard();
+
+  // Initialize Supabase integration
+  if (typeof initSupabase === "function") {
+    initSupabase();
+  }
 
   // Multi-tab synchronization
   window.addEventListener("storage", function (e) {
