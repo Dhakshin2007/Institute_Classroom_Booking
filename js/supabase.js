@@ -1,14 +1,23 @@
 // supabase.js - Real IIT Ropar Supabase Backend Integration
-const SUPABASE_URL = "https://drblsmxstpxuburlfgcz.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_gf_A-eAHt9LBX1ft3IRrqA_Trr-7Hty";
+// Credentials are loaded from runtime environment (injected via Vercel env / build.js)
+const SUPABASE_URL = (typeof window !== "undefined" && window.__ENV__ && window.__ENV__.SUPABASE_URL)
+  ? window.__ENV__.SUPABASE_URL
+  : "";
+
+const SUPABASE_ANON_KEY = (typeof window !== "undefined" && window.__ENV__ && window.__ENV__.SUPABASE_ANON_KEY)
+  ? window.__ENV__.SUPABASE_ANON_KEY
+  : "";
 
 var supabaseClient = null;
 var isSupabaseConnected = false;
 
 // Initialize Supabase Client
 try {
-  if (typeof supabase !== "undefined" && supabase.createClient) {
+  if (SUPABASE_URL && SUPABASE_ANON_KEY && typeof supabase !== "undefined" && supabase.createClient) {
     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log("⚡ Supabase client initialized with cloud backend.");
+  } else {
+    console.info("ℹ️ Running in local offline mode (Supabase credentials not configured).");
   }
 } catch (err) {
   console.warn("Supabase client init warning:", err);
@@ -273,7 +282,7 @@ function updateSupabaseBadge(connected) {
   if (!badge) return;
   if (connected) {
     badge.className = "supabase-badge connected";
-    badge.innerHTML = '<span class="status-dot"></span> <strong>Supabase Live</strong> · drblsmxstpxuburlfgcz (33 IIT Ropar Rooms)';
+    badge.innerHTML = '<span class="status-dot"></span> <strong>Cloud Sync Active</strong>';
     badge.title = "Connected to Supabase PostgreSQL database";
   } else {
     badge.className = "supabase-badge offline";

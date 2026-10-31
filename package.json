@@ -1,0 +1,17 @@
+{
+  "name": "iitrpr-campusync",
+  "version": "1.0.0",
+  "description": "IIT Ropar Classroom and Venue Reservation Portal",
+  "scripts": {
+    "build": "node build.js",
+    "start": "node build.js && npx serve ."
+  },
+  "keywords": [
+    "AI511",
+    "IIT Ropar",
+    "Classroom Booking",
+    "CampuSync"
+  ],
+  "author": "Dhakshin K, J Yeswanth Teja",
+  "license": "MIT"
+}

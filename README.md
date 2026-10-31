@@ -1,7 +1,6 @@
 # 🏛️ IIT Ropar CampuSync — Institutional Venue Reservation Portal
 
 > **A modern, SaaS-grade classroom and venue reservation portal engineered for the Indian Institute of Technology Ropar (IIT Ropar).**  
-> Designed and evaluated under rigorous Human-Computer Interaction (HCI) principles for **AI511: Human-Computer Interaction (Lab 6)**.
 
 ---
 
@@ -20,7 +19,7 @@
 - **Dhakshin K** — Member
 - **J Yeswanth Teja** — Member
 
-*Department of Computer Science & Engineering / Artificial Intelligence*  
+*School of Artificial Intelligence & Data Engineering*  
 *Indian Institute of Technology Ropar (IIT Ropar)*
 
 ---
@@ -30,7 +29,7 @@
 You **do not need to clone this repository, install Node.js, run servers, or configure dependencies** to use or evaluate this platform:
 
 1. **Direct Web Access:** Open [https://iitrpr-campusync.vercel.app/](https://iitrpr-campusync.vercel.app/) in any modern web browser on desktop, tablet, or smartphone.
-2. **Standalone Offline File:** You can simply download `index.html` (or download this repo as a ZIP file), extract it, and **double-click `index.html`**. 
+2. **Standalone Offline File:** You can simply download the zip and then can access the website from `index.html` , extract it, and **double-click `index.html`**. 
    - The entire front-end is written in zero-build, pure vanilla HTML5, CSS3, and JavaScript with bundled scripts.
    - Automatically connects to the live Supabase cloud database while retaining full offline fallback capabilities.
 
@@ -49,37 +48,12 @@ If you prefer to run or inspect the code locally, choose any of the methods belo
 1. Open the `classroom-booking` folder in **Visual Studio Code**.
 2. Install the **Live Server** extension (by Ritwick Dey) if not already installed.
 3. Right-click on `index.html` in the file explorer and click **"Open with Live Server"**.
-4. The site will launch automatically at `http://127.0.0.1:5500`.
+4. The site will launch automatically at `http://127.0.0.1:5500` or `http://localhost:3000`.
 
-### Method 3: Python Built-in HTTP Server
-Run this single command in your terminal or PowerShell inside the `classroom-booking` folder:
-```bash
-python -m http.server 3000
-```
-Then visit: [http://localhost:3000](http://localhost:3000)
-
-### Method 4: Node.js / NPX
-If you have Node.js installed, run:
-```bash
-npx serve .
-```
-Then open the local URL shown in your terminal.
 
 ---
 
-## 🔑 Demo Institutional Credentials
 
-All pre-configured institutional test accounts share the password: **`password`**
-
-| Role | Email | Password | Primary Capabilities |
-| :--- | :--- | :--- | :--- |
-| **Student / Club Lead** | `student@iitrpr.ac.in` | `password` | Search venues, smart recommendations, submit bookings, cancel requests, view printable Gate Pass & QR token, submit 5-star ratings & reviews. |
-| **Faculty / Admin** | `admin@iitrpr.ac.in` | `password` | Review pending reservations, approve/reject with mandatory feedback, suggest alternative rooms, view student venue ratings. |
-| **Security Guard** | `security@iitrpr.ac.in` | `password` | Real-time token validation, simulated QR scanning, check-in to Occupied state, check-out with room inspection remarks. |
-
-> 🔒 **Security Notice:** In production accordance, all login forms have zero preloaded passwords, feature interactive **password visibility toggles (eye icons)**, and include real-time password strength and match meters on signup.
-
----
 
 ## ✨ Key Features & Institutional Capabilities
 
@@ -178,4 +152,4 @@ To test the entire institutional flow in 3 minutes:
 
 ---
 
-*Developed for AI511 Lab 6 — Indian Institute of Technology Ropar.*
+*Developed for AI511 — Indian Institute of Technology Ropar.*

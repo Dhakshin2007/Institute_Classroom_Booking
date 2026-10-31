@@ -569,7 +569,9 @@
   <a href="mailto:facilities@iitrpr.ac.in" style="color:var(--muted)">facilities@iitrpr.ac.in</a>
 </footer>
 
-<!-- SCRIPTS (load order: libraries, data, modules, app) -->
+<!-- SCRIPTS (load order: environment, libraries, data, modules, app) -->
+<script src="/api/env.js" onerror="this.onerror=null;"></script>
+<script src="js/env.js" onerror="this.onerror=null;"></script>
 <script src="js/supabase.min.js"></script>
 <script src="js/qrcode.min.js"></script>
 <script src="js/html5-qrcode.min.js"></script>
