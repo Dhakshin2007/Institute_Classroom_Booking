@@ -1,4 +1,4 @@
-// build.js - Injects environment variables for static front-end runtime
+// build.js - Injects environment variables and prepares production static assets
 const fs = require('fs');
 const path = require('path');
 
@@ -37,6 +37,22 @@ if (!fs.existsSync(jsDir)) {
 
 fs.writeFileSync(path.join(jsDir, 'env.js'), jsContent, 'utf8');
 console.log('✅ Generated js/env.js successfully.');
+
+// Fail-safe sync to public/ so deployment succeeds whether Vercel serves '.' or 'public/'
+const publicDir = path.join(__dirname, 'public');
+if (!fs.existsSync(publicDir)) {
+  fs.mkdirSync(publicDir, { recursive: true });
+}
+
+['index.html', 'css', 'js', 'robots.txt', 'sitemap.xml', 'google901026179fd636e2.html'].forEach(item => {
+  const src = path.join(__dirname, item);
+  const dest = path.join(publicDir, item);
+  if (fs.existsSync(src)) {
+    fs.cpSync(src, dest, { recursive: true, force: true });
+  }
+});
+console.log('✅ Synchronized static assets to public/ (dual-target compatibility).');
+
 if (url && key) {
   console.log(`   Connected to Supabase project: ${url}`);
 } else {

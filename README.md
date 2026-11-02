@@ -4,13 +4,15 @@
 
 ---
 
-## 🌐 Live Production Deployment
+## 🌐 Live Production Deployment & Project Links
 
 **Experience the platform immediately without any setup or cloning:**
 
 [![Live Website](https://img.shields.io/badge/Deployed%20Portal-iitrpr--campusync.vercel.app-006699?style=for-the-badge&logo=vercel&logoColor=white)](https://iitrpr-campusync.vercel.app/)
 
-🔗 **Live URL:** [https://iitrpr-campusync.vercel.app/](https://iitrpr-campusync.vercel.app/)
+- 🔗 **Live Website URL:** [https://iitrpr-campusync.vercel.app/](https://iitrpr-campusync.vercel.app/)
+- 📊 **Google Slides Link:** [https://docs.google.com/presentation/d/1OrZYvovOVzIil3i01Qqv7UDHgengTM4pTKpUbmllytY/edit?usp=sharing](https://docs.google.com/presentation/d/1OrZYvovOVzIil3i01Qqv7UDHgengTM4pTKpUbmllytY/edit?usp=sharing)
+- 🎥 **YouTube Demonstration Video Link:** [https://youtu.be/xIMU2_vYXMw](https://youtu.be/xIMU2_vYXMw)
 
 ---
 
@@ -152,4 +154,4 @@ To test the entire institutional flow in 3 minutes:
 
 ---
 
-*Developed for AI511 — Indian Institute of Technology Ropar.*
+*Developed for AI511 Final Project — Indian Institute of Technology Ropar.*
